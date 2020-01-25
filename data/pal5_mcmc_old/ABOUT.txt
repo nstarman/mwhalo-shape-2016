@@ -1,0 +1,10 @@
+TITLE   : pal5_mcmc
+AUTHOR  : Nathaniel Starkman
+
+
+CONTAINS
+————————
+pal5_mcmc/ : 
+	mwpot14-fitsigma-0.dat
+	...
+	mwpot14-fitsigma-31.dat

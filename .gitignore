@@ -1,3 +1,55 @@
+# git-ignore file
+# split into default python and project-specific sections
+
+###############################################################################
+# Project-Specific
+
+# Large Data Files
+# ex: data/
+
+## Papers
+# ignores all contents except the figures & ABOUT.txt
+/papers/*/*
+!/papers/**/ABOUT.txt
+!/papers/**/figures/
+!/papers/**/figures/*
+# to not ignore a paper, add the path
+# ex: !/papers/_sample/
+
+## Presentations
+# ignores all contents except the figures & ABOUT.txt
+/presentations/*/*
+!/presentations/**/ABOUT.txt
+!/presentations/**/figures/
+!/presentations/**/figures/*
+# to not ignore a presentation, add the path
+# ex: !/presentations/_sample/
+
+# scratch folder
+scratch/
+
+# _old
+**/_old
+
+# scripts
+scripts/**/output
+
+# Environments subfolders
+envs/*/**
+
+# comment when done with public projects
+notebooks/**/*.png
+
+# un-comment these for projects before committing
+notebooks/_sample/*
+papers/_sample/*
+presentations/_sample/*
+scripts/_sample/*
+src/_sample/*
+
+###############################################################################
+# Default
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -8,7 +60,6 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-env/
 build/
 develop-eggs/
 dist/
@@ -20,9 +71,11 @@ lib64/
 parts/
 sdist/
 var/
+wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -42,16 +95,17 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
-*,cover
+*.cover
 .hypothesis/
+.pytest_cache/
 
 # Translations
 *.mo
 *.pot
 
 # Django stuff:
-*.log
 local_settings.py
+db.sqlite3
 
 # Flask stuff:
 instance/
@@ -66,8 +120,8 @@ docs/_build/
 # PyBuilder
 target/
 
-# IPython Notebook
-.ipynb_checkpoints
+# Jupyter Notebook
+**.ipynb_checkpoints
 
 # pyenv
 .python-version
@@ -75,18 +129,43 @@ target/
 # celery beat schedule file
 celerybeat-schedule
 
-# dotenv
-.env
+# SageMath parsed files
+*.sage.py
 
-# virtualenv
+# Environments
+.env
+.venv
+env/
 venv/
 ENV/
+env.bak/
+venv.bak/
 
 # Spyder project settings
 .spyderproject
+.spyproject
 
 # Rope project settings
 .ropeproject
 
-*.dat
-*.pkl
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+
+# DS_Store
+*.DS_Store
+
+# FTP
+sftp-config\.json
+*.ftp*
+
+# Latex Files
+*.aux
+*.bbl
+*.blg
+*.gz
+*.out
+*.fls
+*.fdb_latexmk
