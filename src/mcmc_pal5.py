@@ -1,8 +1,49 @@
+# -*- coding: utf-8 -*-
+
+# ----------------------------------------------------------------------------
+#
+# TITLE   : mcmc_pal5
+# PROJECT : Pal 5 update MW pot constraints
+#
+# ----------------------------------------------------------------------------
+
+# Docstring
+"""MCMC analysis routines of Palomar 5.
+
+Routing Listings
+----------------
+filelen
+load_samples
+find_starting_point
+lnp
+get_options
+
+References
+----------
+https://github.com/jobovy/mwhalo-shape-2016
+
+"""
+
+__author__ = "Jo Bovy"
+__copyright__ = "Copyright 2016, 2020, "
+__maintainer__ = "Nathaniel Starkman"
+
+__all__ = [
+    "_DATADIR",
+    "filelen",
+    "load_samples",
+    "find_starting_point",
+    "lnp",
+    "get_options",
+]
+
+
 ###############################################################################
-# mcmc_pal5.py: module to run MCMC analysis of the Pal 5 stream
-###############################################################################
-import sys
-import os, os.path
+# IMPORTS
+
+# GENERAL
+import os
+import os.path
 import copy
 import time
 import pickle
@@ -13,82 +54,23 @@ import warnings
 import numpy
 from scipy.special import logsumexp
 import emcee
-from . import pal5_util
+
+# PROJECT-SPECIFIC
+# fmt: off
+import sys; sys.path.append('../')
+# fmt: on
+from src import pal5_util
+
+
+###############################################################################
+# PARAMETERS
 
 _DATADIR = os.getenv("DATADIR")
 
 
-def get_options():
-    usage = "usage: %prog [options]"
-    parser = OptionParser(usage=usage)
-    # Potential parameters
-    parser.add_option(
-        "--bf_b15",
-        action="store_true",
-        dest="bf_b15",
-        default=False,
-        help="If set, use the best-fit to the MWPotential2014 data",
-    )
-    parser.add_option(
-        "--seed",
-        dest="seed",
-        default=1,
-        type="int",
-        help="seed for everything except for potential",
-    )
-    parser.add_option(
-        "--fitsigma",
-        action="store_true",
-        dest="fitsigma",
-        default=False,
-        help="If set, fit for the velocity-dispersion parameter",
-    )
-    parser.add_option(
-        "--dt",
-        dest="dt",
-        default=10.0,
-        type="float",
-        help="Run MCMC for this many minutes",
-    )
-    parser.add_option(
-        "-i",
-        dest="pindx",
-        default=None,
-        type="int",
-        help="Index into the potential samples to consider",
-    )
-    parser.add_option(
-        "--ro",
-        dest="ro",
-        default=pal5_util._REFR0,
-        type="float",
-        help="Distance to the Galactic center in kpc",
-    )
-    parser.add_option(
-        "--td", dest="td", default=5.0, type="float", help="Age of the stream"
-    )
-    parser.add_option(
-        "--samples_savefilename",
-        dest="samples_savefilename",
-        default="mwpot14varyc-samples.pkl",
-        help="Name of the file that contains the potential samples",
-    )
-    # Output file
-    parser.add_option(
-        "-o",
-        dest="outfilename",
-        default=None,
-        help="Name of the file that will hold the output",
-    )
-    # Multi-processing
-    parser.add_option(
-        "-m",
-        dest="multi",
-        default=1,
-        type="int",
-        help="Number of CPUs to use for streamdf setup",
-    )
-    return parser
+###############################################################################
+# CODE
+###############################################################################
 
 
 def filelen(filename):
@@ -98,7 +80,11 @@ def filelen(filename):
     result, err = p.communicate()
     if p.returncode != 0:
         raise IOError(err)
+
     return int(result.strip().split()[0])
+
+
+# /def
 
 
 def load_samples(options):
@@ -110,7 +96,11 @@ def load_samples(options):
             "File %s that is supposed to hold the potential samples does not exist"
             % options.samples_savefilename
         )
+
     return s
+
+
+# /def
 
 
 def find_starting_point(options, pot_params, dist, pmra, pmdec, sigv):
@@ -169,6 +159,9 @@ def find_starting_point(options, pot_params, dist, pmra, pmdec, sigv):
             )[:, 0]
         lnlike = numpy.amax(lnlikes, axis=1)
     return cs[numpy.argmax(lnlike)]
+
+
+# /def
 
 
 def lnp(p, pot_params, options):
@@ -265,6 +258,7 @@ def lnp(p, pot_params, options):
             pal5varyc_like[5],
             pal5varyc_like[6],
         )[0, 0]
+
     return (
         logsumexp(lnlikes)
         + pal5_util.pal5_lnlike(
@@ -281,6 +275,88 @@ def lnp(p, pot_params, options):
         - 0.5 * (pmra + 2.296) ** 2.0 / 0.186 ** 2.0
         - 0.5 * (pmdec + 2.257) ** 2.0 / 0.181 ** 2.0
     )
+
+
+# /def
+
+
+###############################################################################
+# Command Line
+###############################################################################
+
+
+def get_options():
+    """Command-line Options."""
+    usage = "usage: %prog [options]"
+    parser = OptionParser(usage=usage)
+    # Potential parameters
+    parser.add_option(
+        "--bf_b15",
+        action="store_true",
+        dest="bf_b15",
+        default=False,
+        help="If set, use the best-fit to the MWPotential2014 data",
+    )
+    parser.add_option(
+        "--seed",
+        dest="seed",
+        default=1,
+        type="int",
+        help="seed for everything except for potential",
+    )
+    parser.add_option(
+        "--fitsigma",
+        action="store_true",
+        dest="fitsigma",
+        default=False,
+        help="If set, fit for the velocity-dispersion parameter",
+    )
+    parser.add_option(
+        "--dt",
+        dest="dt",
+        default=10.0,
+        type="float",
+        help="Run MCMC for this many minutes",
+    )
+    parser.add_option(
+        "-i",
+        dest="pindx",
+        default=None,
+        type="int",
+        help="Index into the potential samples to consider",
+    )
+    parser.add_option(
+        "--ro",
+        dest="ro",
+        default=pal5_util._REFR0,
+        type="float",
+        help="Distance to the Galactic center in kpc",
+    )
+    parser.add_option(
+        "--td", dest="td", default=5.0, type="float", help="Age of the stream"
+    )
+    parser.add_option(
+        "--samples_savefilename",
+        dest="samples_savefilename",
+        default="../data/mwpot14varyc-samples.pkl",
+        help="Name of the file that contains the potential samples",
+    )
+    # Output file
+    parser.add_option(
+        "-o",
+        dest="outfilename",
+        default=None,
+        help="Name of the file that will hold the output",
+    )
+    # Multi-processing
+    parser.add_option(
+        "-m",
+        dest="multi",
+        default=1,
+        type="int",
+        help="Number of CPUs to use for streamdf setup",
+    )
+    return parser
 
 
 if __name__ == "__main__":
@@ -301,6 +377,7 @@ if __name__ == "__main__":
         ]
     else:
         pot_samples = load_samples(options)
+        import pdb; pdb.set_trace()
         rndindx = numpy.random.permutation(pot_samples.shape[1])[options.pindx]
         pot_params = pot_samples[:, rndindx]
     print(pot_params)
@@ -320,7 +397,9 @@ if __name__ == "__main__":
         if cstart > 1.15:
             cstart = 1.15  # Higher c doesn't typically really work
         if options.fitsigma:
-            start_params = numpy.array([cstart, 1.0, dist / 22.0, 0.0, 0.0, 0.0])
+            start_params = numpy.array(
+                [cstart, 1.0, dist / 22.0, 0.0, 0.0, 0.0]
+            )
             step = numpy.array([0.05, 0.05, 0.05, 0.05, 0.01, 0.05])
         else:
             start_params = numpy.array([cstart, 1.0, dist / 22.0, 0.0, 0.0])
@@ -328,7 +407,8 @@ if __name__ == "__main__":
         nn = 0
         while nn < nwalkers:
             all_start_params[nn] = (
-                start_params + numpy.random.normal(size=len(start_params)) * step
+                start_params
+                + numpy.random.normal(size=len(start_params)) * step
             )
             start_lnprob0[nn] = lnp(all_start_params[nn], pot_params, options)
             if start_lnprob0[nn] > -1000000.0:
@@ -341,7 +421,9 @@ if __name__ == "__main__":
             all_lines = savefile.readlines()
         for nn in range(nwalkers):
             lastline = all_lines[-1 - nn]
-            tstart_params = numpy.array([float(s) for s in lastline.split(",")])
+            tstart_params = numpy.array(
+                [float(s) for s in lastline.split(",")]
+            )
             start_lnprob0[nn] = tstart_params[-1]
             all_start_params[nn] = tstart_params[:-1]
     # Output
@@ -437,3 +519,6 @@ if __name__ == "__main__":
                 )
         outfile.flush()
     outfile.close()
+
+###############################################################################
+# END

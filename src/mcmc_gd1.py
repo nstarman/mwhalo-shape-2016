@@ -1,7 +1,46 @@
+# -*- coding: utf-8 -*-
+
+# ----------------------------------------------------------------------------
+#
+# TITLE   : mcmc_gd1
+# PROJECT : Pal 5 update MW pot constraints
+#
+# ----------------------------------------------------------------------------
+
+# Docstring
+"""module to run MCMC analysis of the GD-1 stream.
+
+Routing Listings
+----------------
+filelen
+load_samples
+lnp
+get_options
+
+References
+----------
+https://github.com/jobovy/mwhalo-shape-2016
+
+"""
+
+__author__ = "Jo Bovy"
+__copyright__ = "Copyright 2016, 2020, "
+__maintainer__ = "Nathaniel Starkman"
+
+__all__ = [
+    "_DATADIR",
+    "filelen",
+    "load_samples",
+    "lnp",
+    "get_options",
+]
+
+
 ###############################################################################
-# mcmc_gd1.py: module to run MCMC analysis of the GD-1 stream
-###############################################################################
-import os, os.path
+# IMPORTS
+
+import os
+import os.path
 import copy
 import time
 import pickle
@@ -12,10 +51,135 @@ import warnings
 import numpy
 from scipy.misc import logsumexp
 import emcee
-import pal5_util
-import gd1_util
+
+# PROJECT-SPECIFIC
+from . import pal5_util, gd1_util
+
+
+###############################################################################
+# PARAMETERS
 
 _DATADIR = os.getenv("DATADIR")
+
+
+###############################################################################
+# CODE
+###############################################################################
+
+
+def filelen(filename):
+    p = subprocess.Popen(
+        ["wc", "-l", filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    result, err = p.communicate()
+    if p.returncode != 0:
+        raise IOError(err)
+    return int(result.strip().split()[0])
+
+
+# /def
+
+
+def load_samples(options):
+    if os.path.exists(options.samples_savefilename):
+        with open(options.samples_savefilename, "rb") as savefile:
+            s = pickle.load(savefile)
+    else:
+        raise IOError(
+            "File %s that is supposed to hold the potential samples does not exist"
+            % options.samples_savefilename
+        )
+    return s
+
+
+# /def
+
+
+def lnp(p, pot_params, options):
+
+    warnings.filterwarnings(
+        "ignore", message="Using C implementation to integrate orbits"
+    )
+
+    # p=[c,vo/220,phi2,dist/10.,pmphi1+8.5,pmphi2+2,vlos/300] and ln(sigv) if fitsigma
+    c = p[0]
+    vo = p[1] * pal5_util._REFV0
+    phi2 = p[2]
+    dist = p[3] * 10.0
+    pmphi1 = -8.5 + p[4]
+    pmphi2 = -2.0 + p[5]
+    vlos = p[6] * 300.0
+    if options.fitsigma:
+        sigv = 0.4 * numpy.exp(p[7])
+    else:
+        sigv = 0.4
+
+    # Priors
+    if c < 0.5:
+        return -100000000000000000.0
+    elif c > 2.0:
+        return -10000000000000000.0
+    elif not options.logpot and vo < 200:
+        return -10000000000000000.0
+    elif not options.logpot and vo > 250:
+        return -10000000000000000.0
+    elif options.logpot and vo < 130.0:
+        return -10000000000000000.0
+    elif options.logpot and vo > 290.0:
+        return -10000000000000000.0
+    elif dist < 5.0:
+        return -10000000000000000.0
+    elif dist > 15.0:
+        return -10000000000000000.0
+    elif options.fitsigma and sigv < 0.1:
+        return -10000000000000000.0
+    elif options.fitsigma and sigv > 1.0:
+        return -10000000000000000.0
+
+    # Setup the model
+    gd1varyc_like = gd1_util.predict_gd1obs(
+        pot_params,
+        c,
+        phi1=0.0,
+        phi2=phi2,
+        dist=dist,
+        pmphi1=pmphi1,
+        pmphi2=pmphi2,
+        vlos=vlos,
+        ro=options.ro,
+        vo=vo,
+        verbose=False,
+        sigv=sigv,
+        td=options.td,
+        useTM=False,
+        nTrackChunks=8,
+        logpot=options.logpot,
+    )
+
+    posdata, distdata, pmdata, rvdata = gd1_util.gd1_data()
+
+    lnlike = gd1_util.gd1_lnlike(
+        posdata, distdata, pmdata, rvdata, gd1varyc_like[0]
+    )
+
+    if not gd1varyc_like[1]:
+        addllnlike = -15.0  # penalize
+    else:
+        addllnlike = 0.0
+
+    out = numpy.sum(lnlike) + addllnlike
+
+    if numpy.isnan(out):
+        return -10000000000000000.0
+    else:
+        return out
+
+
+# /def
+
+###############################################################################
+# Command Line
+###############################################################################
 
 
 def get_options():
@@ -98,96 +262,7 @@ def get_options():
     return parser
 
 
-def filelen(filename):
-    p = subprocess.Popen(
-        ["wc", "-l", filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    result, err = p.communicate()
-    if p.returncode != 0:
-        raise IOError(err)
-    return int(result.strip().split()[0])
-
-
-def load_samples(options):
-    if os.path.exists(options.samples_savefilename):
-        with open(options.samples_savefilename, "rb") as savefile:
-            s = pickle.load(savefile)
-    else:
-        raise IOError(
-            "File %s that is supposed to hold the potential samples does not exist"
-            % options.samples_savefilename
-        )
-    return s
-
-
-def lnp(p, pot_params, options):
-    warnings.filterwarnings(
-        "ignore", message="Using C implementation to integrate orbits"
-    )
-    # p=[c,vo/220,phi2,dist/10.,pmphi1+8.5,pmphi2+2,vlos/300] and ln(sigv) if fitsigma
-    c = p[0]
-    vo = p[1] * pal5_util._REFV0
-    phi2 = p[2]
-    dist = p[3] * 10.0
-    pmphi1 = -8.5 + p[4]
-    pmphi2 = -2.0 + p[5]
-    vlos = p[6] * 300.0
-    if options.fitsigma:
-        sigv = 0.4 * numpy.exp(p[7])
-    else:
-        sigv = 0.4
-    # Priors
-    if c < 0.5:
-        return -100000000000000000.0
-    elif c > 2.0:
-        return -10000000000000000.0
-    elif not options.logpot and vo < 200:
-        return -10000000000000000.0
-    elif not options.logpot and vo > 250:
-        return -10000000000000000.0
-    elif options.logpot and vo < 130.0:
-        return -10000000000000000.0
-    elif options.logpot and vo > 290.0:
-        return -10000000000000000.0
-    elif dist < 5.0:
-        return -10000000000000000.0
-    elif dist > 15.0:
-        return -10000000000000000.0
-    elif options.fitsigma and sigv < 0.1:
-        return -10000000000000000.0
-    elif options.fitsigma and sigv > 1.0:
-        return -10000000000000000.0
-    # Setup the model
-    gd1varyc_like = gd1_util.predict_gd1obs(
-        pot_params,
-        c,
-        phi1=0.0,
-        phi2=phi2,
-        dist=dist,
-        pmphi1=pmphi1,
-        pmphi2=pmphi2,
-        vlos=vlos,
-        ro=options.ro,
-        vo=vo,
-        verbose=False,
-        sigv=sigv,
-        td=options.td,
-        useTM=False,
-        nTrackChunks=8,
-        logpot=options.logpot,
-    )
-    posdata, distdata, pmdata, rvdata = gd1_util.gd1_data()
-    lnlike = gd1_util.gd1_lnlike(posdata, distdata, pmdata, rvdata, gd1varyc_like[0])
-    if not gd1varyc_like[1]:
-        addllnlike = -15.0  # penalize
-    else:
-        addllnlike = 0.0
-    out = numpy.sum(lnlike) + addllnlike
-    if numpy.isnan(out):
-        return -10000000000000000.0
-    else:
-        return out
-
+# /def
 
 if __name__ == "__main__":
     parser = get_options()
@@ -233,7 +308,9 @@ if __name__ == "__main__":
                     numpy.log(0.365 / 0.4),
                 ]
             )
-            step = numpy.array([0.05, 0.03, 0.05, 0.03, 0.05, 0.03, 0.05, 0.05])
+            step = numpy.array(
+                [0.05, 0.03, 0.05, 0.03, 0.05, 0.03, 0.05, 0.05]
+            )
         else:
             start_params = numpy.array(
                 [cstart, 1.0, -1.0, 10.2 / 10.0, 0.0, -0.05, -285.0 / 300.0]
@@ -242,7 +319,8 @@ if __name__ == "__main__":
         nn = 0
         while nn < nwalkers:
             all_start_params[nn] = (
-                start_params + numpy.random.normal(size=len(start_params)) * step
+                start_params
+                + numpy.random.normal(size=len(start_params)) * step
             )
             start_lnprob0[nn] = lnp(all_start_params[nn], pot_params, options)
             if start_lnprob0[nn] > -1000000.0:
@@ -255,7 +333,9 @@ if __name__ == "__main__":
             all_lines = savefile.readlines()
         for nn in range(nwalkers):
             lastline = all_lines[-1 - nn]
-            tstart_params = numpy.array([float(s) for s in lastline.split(",")])
+            tstart_params = numpy.array(
+                [float(s) for s in lastline.split(",")]
+            )
             start_lnprob0[nn] = tstart_params[-1]
             all_start_params[nn] = tstart_params[:-1]
     # Output
@@ -359,3 +439,8 @@ if __name__ == "__main__":
                 )
         outfile.flush()
     outfile.close()
+
+# /if
+
+###############################################################################
+# END

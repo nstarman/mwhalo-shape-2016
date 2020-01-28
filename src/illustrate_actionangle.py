@@ -1,17 +1,60 @@
-# Make a little movie to illustrate how to compute actions
-# Usage:
-# python illustrate_actionangle.py ../movies/aaI ../actionIllustration.mpg
+# -*- coding: utf-8 -*-
+
+# ----------------------------------------------------------------------------
+#
+# TITLE   : illustrate_actionangle
+# PROJECT : Pal 5 update MW pot constraints
+#
+# ----------------------------------------------------------------------------
+
+# Docstring
+"""illustrate Action-Angle
+
+Make a little movie to illustrate how to compute actions
+
+Routing Listings
+----------------
+create_frames
+create_movie
+
+Examples
+--------
+>>>python illustrate_actionangle.py ../movies/aaI ../actionIllustration.mpg
+
+"""
+
+__author__ = "Jo Bovy"
+__copyright__ = "Copyright 2016, 2020, "
+__maintainer__ = "Nathaniel Starkman"
+
+__all__ = ["create_frames", "create_movie"]
+
+
+###############################################################################
+# IMPORTS
+
+# GENERAL
+import os
+import os.path
 import sys
-import os, os.path
+import subprocess
 import numpy
 import tqdm
-import subprocess
+
 import astropy.units as u
+
+from matplotlib import pyplot, gridspec
+
+# CUSTOM
 from galpy.potential import IsochronePotential
 from galpy.orbit import Orbit
 from galpy.actionAngle import actionAngleIsochrone
 from galpy.util import bovy_plot
-from matplotlib import pyplot, gridspec
+
+
+###############################################################################
+# CODE
+###############################################################################
 
 
 def create_frames(basefilename):
@@ -26,9 +69,9 @@ def create_frames(basefilename):
     ndesired = 30 * 25
     times = numpy.linspace(0.0, 7.0, tfac * ndesired) * u.Gyr
     # Subsample
-    otimesIndices = (numpy.arange(len(times)) / float(len(times) - 1)) ** 10 * (
-        len(times) - 2
-    )
+    otimesIndices = (
+        numpy.arange(len(times)) / float(len(times) - 1)
+    ) ** 10 * (len(times) - 2)
     otimesIndices = numpy.unique(numpy.floor(otimesIndices).astype("int"))
     if len(otimesIndices) > ndesired:
         sfac = int(numpy.floor(len(otimesIndices) / float(ndesired)))
@@ -37,7 +80,12 @@ def create_frames(basefilename):
     o.integrate(times, pot)
     # Compute all actions in the wrong potential
     acfs = aAF.actionsFreqsAngles(
-        o.R(times), o.vR(times), o.vT(times), o.z(times), o.vz(times), o.phi(times)
+        o.R(times),
+        o.vR(times),
+        o.vT(times),
+        o.z(times),
+        o.vz(times),
+        o.phi(times),
     )
     js = (acfs[0], acfs[1], acfs[2])
     danglerI = ((numpy.roll(acfs[6], -1) - acfs[6]) % (2.0 * numpy.pi))[:-1]
@@ -127,6 +175,11 @@ def create_frames(basefilename):
     return None
 
 
+# /def
+
+# --------------------------------------------------------------------------
+
+
 def create_movie(basefilename, outputfilename):
     framerate = 25
     bitrate = 1000000
@@ -147,10 +200,21 @@ def create_movie(basefilename, outputfilename):
             ]
         )
     except subprocess.CalledProcessError:
-        print "'ffmpeg' failed"
+        print("'ffmpeg' failed")
     return None
 
+
+# /def
+
+
+###############################################################################
+# Command Line
+###############################################################################
 
 if __name__ == "__main__":
     create_frames(sys.argv[1])
     create_movie(sys.argv[1], sys.argv[2])
+
+
+###############################################################################
+# END

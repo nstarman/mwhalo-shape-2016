@@ -2,16 +2,26 @@
 
 # ----------------------------------------------------------------------------
 #
-# TITLE   : MWPotential2014Likelihood
+# TITLE   : pal5_util
 # PROJECT : Pal 5 update MW pot constraints
 #
 # ----------------------------------------------------------------------------
 
 # Docstring
-"""Milky Way Potential (2014 version) Likelihood.
+"""Palomar 5 Utility.
 
 Routing Listings
 ----------------
+radec_to_pal5xieta
+width_trailing
+vdisp_trailing
+timeout_handler
+predict_pal5obs
+looks_funny
+pal5_lnlike
+setup_sdf
+pal5_dpmguess
+pal5_data
 
 References
 ----------
@@ -23,20 +33,33 @@ __author__ = "Jo Bovy"
 __copyright__ = "Copyright 2016, 2020, "
 __maintainer__ = "Nathaniel Starkman"
 
-# __all__ = [
-#     ""
-# ]
+__all__ = [
+    # parameters
+    "_RAPAL5",
+    "_DECPAL5",
+    "_TPAL5",
+    # functions
+    "radec_to_pal5xieta",
+    "width_trailing",
+    "vdisp_trailing",
+    "timeout_handler",
+    "predict_pal5obs",
+    "looks_funny",
+    "pal5_lnlike",
+    "setup_sdf",
+    "pal5_dpmguess",
+    "pal5_data",
+]
 
 
 ###############################################################################
 # IMPORTS
 
 # GENERAL
-import sys
 import copy
 import signal
 import pickle
-import numpy
+import numpy as np
 import tqdm
 from scipy import interpolate
 
@@ -48,6 +71,7 @@ from galpy.actionAngle import actionAngleTorus
 from galpy.orbit import Orbit
 from galpy.df import streamdf
 from galpy.util import bovy_conversion, bovy_coords
+from galpy import potential
 
 # PROJECT-SPECIFIC
 from . import MWPotential2014Likelihood
@@ -58,21 +82,21 @@ from .MWPotential2014Likelihood import _REFR0, _REFV0
 # PARAMETERS
 
 # Coordinate transformation routines
-_RAPAL5 = 229.018 / 180.0 * numpy.pi
-_DECPAL5 = -0.124 / 180.0 * numpy.pi
+_RAPAL5 = 229.018 / 180.0 * np.pi
+_DECPAL5 = -0.124 / 180.0 * np.pi
 
-_TPAL5 = numpy.dot(
-    numpy.array(
+_TPAL5 = np.dot(
+    np.array(
         [
-            [numpy.cos(_DECPAL5), 0.0, numpy.sin(_DECPAL5)],
+            [np.cos(_DECPAL5), 0.0, np.sin(_DECPAL5)],
             [0.0, 1.0, 0.0],
-            [-numpy.sin(_DECPAL5), 0.0, numpy.cos(_DECPAL5)],
+            [-np.sin(_DECPAL5), 0.0, np.cos(_DECPAL5)],
         ]
     ),
-    numpy.array(
+    np.array(
         [
-            [numpy.cos(_RAPAL5), numpy.sin(_RAPAL5), 0.0],
-            [-numpy.sin(_RAPAL5), numpy.cos(_RAPAL5), 0.0],
+            [np.cos(_RAPAL5), np.sin(_RAPAL5), 0.0],
+            [-np.sin(_RAPAL5), np.cos(_RAPAL5), 0.0],
             [0.0, 0.0, 1.0],
         ]
     ),
@@ -86,18 +110,31 @@ _TPAL5 = numpy.dot(
 
 @bovy_coords.scalarDecorator
 @bovy_coords.degreeDecorator([0, 1], [0, 1])
-def radec_to_pal5xieta(ra, dec, degree=False):
-    XYZ = numpy.array(
-        [
-            numpy.cos(dec) * numpy.cos(ra),
-            numpy.cos(dec) * numpy.sin(ra),
-            numpy.sin(dec),
-        ]
+def radec_to_pal5xieta(ra: float, dec: float, degree: bool = False):
+    """Convert ra, dec to Pal 5 coordinate xi, eta.
+
+    Parameters
+    ----------
+    ra: float
+    dec: float
+    degree: bool
+        default False
+
+    Returns
+    -------
+    xieta: ndarray
+        [n, 2] array
+
+    """
+    XYZ = np.array(
+        [np.cos(dec) * np.cos(ra), np.cos(dec) * np.sin(ra), np.sin(dec)]
     )
-    phiXYZ = numpy.dot(_TPAL5, XYZ)
-    phi2 = numpy.arcsin(phiXYZ[2])
-    phi1 = numpy.arctan2(phiXYZ[1], phiXYZ[0])
-    return numpy.array([phi1, phi2]).T
+
+    phiXYZ = np.dot(_TPAL5, XYZ)
+    eta = np.arcsin(phiXYZ[2])
+    xi = np.arctan2(phiXYZ[1], phiXYZ[0])
+
+    return np.array([xi, eta]).T
 
 
 # /def
@@ -107,7 +144,18 @@ def radec_to_pal5xieta(ra, dec, degree=False):
 
 
 def width_trailing(sdf):
-    """Return the FWHM width in arcmin for the trailing tail"""
+    """Return the FWHM width in arcmin for the trailing tail.
+
+    Parameters
+    ----------
+    sdf: streamdf
+
+    Returns
+    -------
+    width: float
+        the width of the stream
+
+    """
     # Go out to RA=245 deg
     trackRADec_trailing = bovy_coords.lb_to_radec(
         sdf._interpolatedObsTrackLB[:, 0],
@@ -115,14 +163,16 @@ def width_trailing(sdf):
         degree=True,
     )
     cindx = range(len(trackRADec_trailing))[
-        numpy.argmin(numpy.fabs(trackRADec_trailing[:, 0] - 245.0))
+        np.argmin(np.fabs(trackRADec_trailing[:, 0] - 245.0))
     ]
-    ws = numpy.zeros(cindx)
+
+    ws = np.zeros(cindx)
     for ii, cc in enumerate(range(1, cindx + 1)):
         xy = [sdf._interpolatedObsTrackLB[cc, 0], None, None, None, None, None]
-        ws[ii] = numpy.sqrt(sdf.gaussApprox(xy=xy, lb=True, cindx=cc)[1][0, 0])
-    #    return 2.355*60.*ws
-    return 2.355 * 60.0 * numpy.mean(ws)
+        ws[ii] = np.sqrt(sdf.gaussApprox(xy=xy, lb=True, cindx=cc)[1][0, 0])
+
+    width = 2.355 * 60.0 * np.mean(ws)
+    return width
 
 
 # /def
@@ -132,7 +182,18 @@ def width_trailing(sdf):
 
 
 def vdisp_trailing(sdf):
-    """Return the velocity dispersion in km/s for the trailing tail"""
+    """Return the velocity dispersion in km/s for the trailing tail.
+
+    Parameters
+    ----------
+    sdf: streamdf
+
+    Returns
+    -------
+    vdisp: float
+        the width of the stream
+
+    """
     # Go out to RA=245 deg
     trackRADec_trailing = bovy_coords.lb_to_radec(
         sdf._interpolatedObsTrackLB[:, 0],
@@ -140,13 +201,15 @@ def vdisp_trailing(sdf):
         degree=True,
     )
     cindx = range(len(trackRADec_trailing))[
-        numpy.argmin(numpy.fabs(trackRADec_trailing[:, 0] - 245.0))
+        np.argmin(np.fabs(trackRADec_trailing[:, 0] - 245.0))
     ]
-    ws = numpy.zeros(cindx)
+
+    ws = np.zeros(cindx)
     for ii, cc in enumerate(range(1, cindx + 1)):
         xy = [sdf._interpolatedObsTrackLB[cc, 0], None, None, None, None, None]
-        ws[ii] = numpy.sqrt(sdf.gaussApprox(xy=xy, lb=True, cindx=cc)[1][2, 2])
-    return numpy.mean(ws)
+        ws[ii] = np.sqrt(sdf.gaussApprox(xy=xy, lb=True, cindx=cc)[1][2, 2])
+
+    return np.mean(ws)
 
 
 # /def
@@ -155,6 +218,7 @@ def vdisp_trailing(sdf):
 
 
 def timeout_handler(signum, frame):
+    """timeout_handler."""
     raise Exception("Calculation timed-out")
 
 
@@ -186,44 +250,84 @@ def predict_pal5obs(
     useTM: bool = False,
     verbose: bool = True,
 ):
-    """
-    NAME:
-       predict_pal5obs
-    PURPOSE:
-       Function that generates the location and velocity of the Pal 5 stream, its width, and its length for a given potential and progenitor phase-space position
-    INPUT:
-       pot_params- array with the parameters of a potential model (see MWPotential2014Likelihood.setup_potential; only the basic parameters of the disk and halo are used, flattening is specified separately)
-       c- halo flattening
-       b= (1.) halo-squashed
-       pa= (0.) halo PA
-       sigv= (0.4) velocity dispersion in km/s (can be array of same len as interpcs)
-       td= (5.) stream age in Gyr (can be array of same len as interpcs)
-       dist= (23.2) progenitor distance in kpc
-       pmra= (-2.296) progenitor proper motion in RA * cos(Dec) in mas/yr
-       pmdec= (-2.257) progenitor proper motion in Dec in mas/yr
-       vlos= (-58.7) progenitor line-of-sight velocity in km/s
-       ro= (project default) distance to the GC in kpc
-       vo= (project default) circular velocity at R0 in km/s
-       singlec= (False) if True, just compute the observables for a single c
-       interpcs= (None) values of c at which to compute the model for interpolation
-       nTrackChunks= (8) nTrackChunks input to streamdf
-       multi= (None) multi input to streamdf
-       isob= (None) if given, b parameter of actionAngleIsochroneApprox
-       trailing_only= (False) if True, only predict the trailing arm
-       useTM= (True) use the TorusMapper to compute the track
-       verbose= (True) print messages
-    OUTPUT:
-       (trailing track in RA,Dec,
-        leading track in RA,Dec,
-        trailing track in RA,Vlos,
-        leading track in RA,Vlos,
-        trailing width in arcmin,
-        trailing length in deg)
+    """Predict Pal 5 Observed.
+
+    Function that generates the location and velocity of the Pal 5 stream,
+    its width, and its length for a given potential and progenitor
+    phase-space position
+
+    Parameters
+    ----------
+    pot_params: array
+        parameters of a potential model
+        (see MWPotential2014Likelihood.setup_potential; only the basic
+         parameters of the disk and halo are used,
+         flattening is specified separately)
+    c : float
+        halo flattening
+    b : float, optional
+        (1.) halo-squashed
+    pa: float, optional
+        (0.) halo PA
+    sigv : float, optional
+        (0.4) velocity dispersion in km/s
+        (can be array of same len as interpcs)
+    td : float, optional
+        (5.) stream age in Gyr (can be array of same len as interpcs)
+    dist : float, optional
+        (23.2) progenitor distance in kpc
+    pmra : float, optional
+        (-2.296) progenitor proper motion in RA * cos(Dec) in mas/yr
+    pmdec : float, optional
+        (-2.257) progenitor proper motion in Dec in mas/yr
+    vlos : float, optional
+        (-58.7) progenitor line-of-sight velocity in km/s
+    ro : float, optional
+        (project default) distance to the GC in kpc
+    vo : float, optional
+        (project default) circular velocity at R0 in km/s
+    singlec : bool, optional
+        (False) if True, just compute the observables for a single c
+    interpcs : float or None, optional
+        (None) values of c at which to compute the model for interpolation
+    nTrackChunks : int, optional
+        (8) nTrackChunks input to streamdf
+    multi : float or None, optional
+        (None) multi input to streamdf
+    isob : float or None, optional
+        (None) if given, b parameter of actionAngleIsochroneApprox
+    trailing_only : bool, optional
+        (False) if True, only predict the trailing arm
+    useTM : bool, optional
+        (True) use the TorusMapper to compute the track
+    verbose : bool, optional
+        (True) print messages
+
+
+    Returns
+    -------
+    trackRADec_trailing_out : array
+        trailing track in RA, Dec
         all arrays with the shape of c
-    HISTORY:
-       2016-06-24 - Written - Bovy (UofT)
+    trackRADec_leading_out : array
+        leading track in RA, Dec
+        all arrays with the shape of c
+    trackRAVlos_trailing_out : array
+        trailing track in RA, Vlos
+        all arrays with the shape of c
+    trackRAVlos_leading_out : array
+        leading track in RA, Vlos
+        all arrays with the shape of c
+    width_out : float
+        trailing width in arcmin
+    length_out : float
+        trailing length in deg
+    interpcs : array
+    success : bool
+
     """
     # First compute the model for all cs at which we will interpolate
+    interpcs: list
     if singlec:
         interpcs = [c]
     elif interpcs is None:
@@ -248,6 +352,7 @@ def predict_pal5obs(
         td = [td for i in interpcs]
     if isinstance(isob, float) or isob is None:
         isob = [isob for i in interpcs]
+
     prog = Orbit(
         [229.018, -0.124, dist, pmra, pmdec, vlos],
         radec=True,
@@ -255,21 +360,23 @@ def predict_pal5obs(
         vo=vo,
         solarmotion=[-11.1, 24.0, 7.25],
     )
+
     # Setup the model
     sdf_trailing_varyc = []
     sdf_leading_varyc = []
-    ii = 0
+    ii: int = 0
     ninterpcs = len(interpcs)
     this_useTM = copy.deepcopy(useTM)
     this_nTrackChunks = nTrackChunks
     ntries = 0
+
     while ii < ninterpcs:
         ic = interpcs[ii]
         pot = MWPotential2014Likelihood.setup_potential(
             pot_params, ic, False, False, ro, vo, b=b, pa=pa
         )
         success = True
-        wentIn = ntries != 0
+        # wentIn = ntries != 0
         # Make sure this doesn't run forever
         signal.signal(signal.SIGALRM, timeout_handler)
         signal.alarm(300)
@@ -321,31 +428,31 @@ def predict_pal5obs(
     if not singlec and len(sdf_trailing_varyc) <= 1:
         # Almost everything bad!!
         return (
-            numpy.zeros((len(c), 1001, 2)),
-            numpy.zeros((len(c), 1001, 2)),
-            numpy.zeros((len(c), 1001, 2)),
-            numpy.zeros((len(c), 1001, 2)),
-            numpy.zeros((len(c))),
-            numpy.zeros((len(c))),
+            np.zeros((len(c), 1001, 2)),
+            np.zeros((len(c), 1001, 2)),
+            np.zeros((len(c), 1001, 2)),
+            np.zeros((len(c), 1001, 2)),
+            np.zeros((len(c))),
+            np.zeros((len(c))),
             [],
             success,
         )
     # Compute the track properties for each model
-    trackRADec_trailing = numpy.zeros(
+    trackRADec_trailing = np.zeros(
         (len(interpcs), sdf_trailing_varyc[0].nInterpolatedTrackChunks, 2)
     )
-    trackRADec_leading = numpy.zeros(
+    trackRADec_leading = np.zeros(
         (len(interpcs), sdf_trailing_varyc[0].nInterpolatedTrackChunks, 2)
     )
-    trackRAVlos_trailing = numpy.zeros(
+    trackRAVlos_trailing = np.zeros(
         (len(interpcs), sdf_trailing_varyc[0].nInterpolatedTrackChunks, 2)
     )
-    trackRAVlos_leading = numpy.zeros(
+    trackRAVlos_leading = np.zeros(
         (len(interpcs), sdf_trailing_varyc[0].nInterpolatedTrackChunks, 2)
     )
     # TODO put in distances (can use _interpolatedObsTrackLB[:,2],)
-    width = numpy.zeros(len(interpcs))
-    length = numpy.zeros(len(interpcs))
+    width = np.zeros(len(interpcs))
+    length = np.zeros(len(interpcs))
     for ii in range(len(interpcs)):
         trackRADec_trailing[ii] = bovy_coords.lb_to_radec(
             sdf_trailing_varyc[ii]._interpolatedObsTrackLB[:, 0],
@@ -386,20 +493,20 @@ def predict_pal5obs(
             success,
         )
     # Interpolate; output grids
-    trackRADec_trailing_out = numpy.zeros(
+    trackRADec_trailing_out = np.zeros(
         (len(c), sdf_trailing_varyc[0].nInterpolatedTrackChunks, 2)
     )
-    trackRADec_leading_out = numpy.zeros(
+    trackRADec_leading_out = np.zeros(
         (len(c), sdf_trailing_varyc[0].nInterpolatedTrackChunks, 2)
     )
-    trackRAVlos_trailing_out = numpy.zeros(
+    trackRAVlos_trailing_out = np.zeros(
         (len(c), sdf_trailing_varyc[0].nInterpolatedTrackChunks, 2)
     )
-    trackRAVlos_leading_out = numpy.zeros(
+    trackRAVlos_leading_out = np.zeros(
         (len(c), sdf_trailing_varyc[0].nInterpolatedTrackChunks, 2)
     )
     if interpk is None:
-        interpk = numpy.amin([len(interpcs) - 1, 3])
+        interpk = np.amin([len(interpcs) - 1, 3])
     for ii in range(sdf_trailing_varyc[0].nInterpolatedTrackChunks):
         ip = interpolate.InterpolatedUnivariateSpline(
             interpcs, trackRADec_trailing[:, ii, 0], k=interpk, ext=0
@@ -442,6 +549,7 @@ def predict_pal5obs(
         interpcs, length, k=interpk, ext=0
     )
     length_out = ip(c)
+
     return (
         trackRADec_trailing_out,
         trackRADec_leading_out,
@@ -461,6 +569,18 @@ def predict_pal5obs(
 
 
 def looks_funny(tsdf_trailing, tsdf_leading):
+    """looks funny.
+
+    Parameters
+    ----------
+    tsdf_trailing
+    tsdf_leading
+
+    Returns
+    -------
+    bool
+
+    """
     radecs_trailing = bovy_coords.lb_to_radec(
         tsdf_trailing._interpolatedObsTrackLB[:, 0],
         tsdf_trailing._interpolatedObsTrackLB[:, 1],
@@ -477,8 +597,8 @@ def looks_funny(tsdf_trailing, tsdf_leading):
             return True
         elif radecs_trailing[0, 1] < -0.1:
             return True
-        elif numpy.any(
-            (numpy.roll(radecs_trailing[:, 0], -1) - radecs_trailing[:, 0])[
+        elif np.any(
+            (np.roll(radecs_trailing[:, 0], -1) - radecs_trailing[:, 0])[
                 (radecs_trailing[:, 0] < 250.0)
                 * (radecs_trailing[:, 1] > -1.0)
                 * (radecs_trailing[:, 1] < 10.0)
@@ -486,8 +606,8 @@ def looks_funny(tsdf_trailing, tsdf_leading):
             < 0.0
         ):
             return True
-        elif not tsdf_leading is None and numpy.any(
-            (numpy.roll(radecs_leading[:, 0], -1) - radecs_leading[:, 0])[
+        elif not tsdf_leading is None and np.any(
+            (np.roll(radecs_leading[:, 0], -1) - radecs_leading[:, 0])[
                 (radecs_leading[:, 0] > 225.0)
                 * (radecs_leading[:, 1] > -4.5)
                 * (radecs_leading[:, 1] < 0.0)
@@ -495,14 +615,14 @@ def looks_funny(tsdf_trailing, tsdf_leading):
             > 0.0
         ):
             return True
-        elif False:  # numpy.isnan(width_trailing(tsdf_trailing)):
+        elif False:  # np.isnan(width_trailing(tsdf_trailing)):
             return True
-        elif numpy.isnan(
+        elif np.isnan(
             tsdf_trailing.length(ang=True, coord="customra", threshold=0.3)
         ):
             return True
         elif (
-            numpy.fabs(
+            np.fabs(
                 tsdf_trailing._dOdJpEig[0][2] / tsdf_trailing._dOdJpEig[0][1]
             )
             < 0.05
@@ -530,53 +650,66 @@ def pal5_lnlike(
     length_out,
     interpcs,
 ):  # last one so we can do *args
-    """
-    Returns array [nmodel,5] with log likelihood for each a) model, b) data set (trailing position, leading position, trailing vlos, actual width, actual length)
+    """Pal 5 Ln-like.
+
+    Returns array [nmodel,5] with log likelihood for each
+    a) model,
+    b) data set
+        (trailing position,
+         leading position,
+         trailing vlos,
+         actual width,
+         actual length)
+
+    Parameters
+    ----------
+    
+
     """
     nmodel = trackRADec_trailing.shape[0]
-    out = numpy.zeros((nmodel, 5)) - 1000000000000000.0
+    out = np.zeros((nmodel, 5)) - 1000000000000000.0
     for nn in range(nmodel):
         # Interpolate trailing RA,Dec track
-        sindx = numpy.argsort(trackRADec_trailing[nn, :, 0])
+        sindx = np.argsort(trackRADec_trailing[nn, :, 0])
         ipdec = interpolate.InterpolatedUnivariateSpline(
             trackRADec_trailing[nn, sindx, 0],
             trackRADec_trailing[nn, sindx, 1],
             k=1,
         )  # to be on the safe side
         tindx = pos_radec[:, 0] > 229.0
-        out[nn, 0] = -0.5 * numpy.sum(
+        out[nn, 0] = -0.5 * np.sum(
             (ipdec(pos_radec[tindx, 0]) - pos_radec[tindx, 1]) ** 2.0
             / pos_radec[tindx, 2] ** 2.0
         )
         # Interpolate leading RA,Dec track
-        sindx = numpy.argsort(trackRADec_leading[nn, :, 0])
+        sindx = np.argsort(trackRADec_leading[nn, :, 0])
         ipdec = interpolate.InterpolatedUnivariateSpline(
             trackRADec_leading[nn, sindx, 0],
             trackRADec_leading[nn, sindx, 1],
             k=1,
         )  # to be on the safe side
         tindx = pos_radec[:, 0] < 229.0
-        out[nn, 1] = -0.5 * numpy.sum(
+        out[nn, 1] = -0.5 * np.sum(
             (ipdec(pos_radec[tindx, 0]) - pos_radec[tindx, 1]) ** 2.0
             / pos_radec[tindx, 2] ** 2.0
         )
         # Interpolate trailing RA,Vlos track
-        sindx = numpy.argsort(trackRAVlos_trailing[nn, :, 0])
+        sindx = np.argsort(trackRAVlos_trailing[nn, :, 0])
         ipvlos = interpolate.InterpolatedUnivariateSpline(
             trackRAVlos_trailing[nn, sindx, 0],
             trackRAVlos_trailing[nn, sindx, 1],
             k=1,
         )  # to be on the safe side
         tindx = rvel_ra[:, 0] > 230.5
-        out[nn, 2] = -0.5 * numpy.sum(
+        out[nn, 2] = -0.5 * np.sum(
             (ipvlos(rvel_ra[tindx, 0]) - rvel_ra[tindx, 1]) ** 2.0
             / rvel_ra[tindx, 2] ** 2.0
         )
         out[nn, 3] = width_out[nn]
         out[nn, 4] = length_out[nn]
-    out[numpy.isnan(out[:, 0]), 0] = -1000000000000000000.0
-    out[numpy.isnan(out[:, 1]), 1] = -1000000000000000000.0
-    out[numpy.isnan(out[:, 2]), 2] = -1000000000000000000.0
+    out[np.isnan(out[:, 0]), 0] = -1000000000000000000.0
+    out[np.isnan(out[:, 1]), 1] = -1000000000000000000.0
+    out[np.isnan(out[:, 2]), 2] = -1000000000000000000.0
     return out
 
 
@@ -586,22 +719,47 @@ def pal5_lnlike(
 
 
 def setup_sdf(
-    pot,
+    pot: potential.Potential,
     prog,
     sigv,
     td,
     ro,
     vo,
     multi=None,
-    nTrackChunks=8,
+    nTrackChunks: float = 8,
     isob=None,
-    trailing_only=False,
-    verbose=True,
-    useTM=True,
+    trailing_only: bool = False,
+    verbose: bool = True,
+    useTM: bool = True,
 ):
+    """Setup Stream Distribution Function.
+
+    Parameters
+    ----------
+    pot : Potential
+    prog : Orbit
+        Progenitor
+    sigv : float
+    td : float
+    ro : float
+    vo : float
+    multi
+        default None
+    nTrackChunks: float
+        default 8
+    isob
+        default None
+    trailing_only: bool
+        default False
+    verbose: bool
+        default True
+    useTM: bool
+        default True
+
+    """
     if isob is None:
         # Determine good one
-        ts = numpy.linspace(0.0, 150.0, 1001)
+        ts = np.linspace(0.0, 150.0, 1001)
         # Hack!
         epot = copy.deepcopy(pot)
         epot[2]._b = 1.0
@@ -623,7 +781,7 @@ def setup_sdf(
             isob = estb[1]
     if verbose:
         print(pot[2]._c, isob)
-    if numpy.fabs(pot[2]._b - 1.0) > 0.05:
+    if np.fabs(pot[2]._b - 1.0) > 0.05:
         aAI = actionAngleIsochroneApprox(
             pot=pot, b=isob, tintJ=1000.0, ntintJ=30000
         )
@@ -653,7 +811,7 @@ def setup_sdf(
 
     try:
         sdf_trailing = streamdf(sigv / vo, **trailing_kwargs)
-    except numpy.linalg.LinAlgError:
+    except np.linalg.LinAlgError:
         sdf_trailing = streamdf(
             sigv / vo,
             progenitor=prog,
@@ -692,7 +850,7 @@ def setup_sdf(
             custom_transform=_TPAL5,
             multi=multi,
         )
-    except numpy.linalg.LinAlgError:
+    except np.linalg.LinAlgError:
         sdf_leading = streamdf(
             sigv / vo,
             progenitor=prog,
@@ -717,6 +875,9 @@ def setup_sdf(
 # /def
 
 
+# --------------------------------------------------------------------------
+
+
 def pal5_dpmguess(
     pot,
     doras=None,
@@ -732,16 +893,58 @@ def pal5_dpmguess(
     ro=_REFR0,
     vo=_REFV0,
 ):
+    """pal5_dpmguess.
+
+    Parameters
+    ----------
+    pot: Potential
+    doras : float or None, optional
+        default None
+    dodecs : float or None, optional
+        default None
+    dovloss : float or None, optional
+        default None
+    dmin=21 : float or None, optional
+        default 0
+    dmax=25 : float or None, optional
+        default 0
+    dstep=0 : float or None, optional
+        default 02
+    pmmin=-0 : float or None, optional
+        default 36
+    pmmax=0 : float or None, optional
+        default 36
+    pmstep=0 : float or None, optional
+        default 01
+    alongbfpm : float or None, optional
+        default False
+    ro : float or None, optional
+        default _REFR0
+    vo : float or None, optional
+        default _REFV0
+
+    Returns
+    -------
+    bestd
+    bestpmoff
+    lnl
+    ds
+    pmoffs
+
+    """
     if doras is None:
         with open("pal5_stream_orbit_offset.pkl", "rb") as savefile:
             doras = pickle.load(savefile)
             dodecs = pickle.load(savefile)
             dovloss = pickle.load(savefile)
-    ds = numpy.arange(dmin, dmax + dstep / 2.0, dstep)
-    pmoffs = numpy.arange(pmmin, pmmax + pmstep / 2.0, pmstep)
-    lnl = numpy.zeros((len(ds), len(pmoffs)))
+
+    ds = np.arange(dmin, dmax + dstep / 2.0, dstep)
+    pmoffs = np.arange(pmmin, pmmax + pmstep / 2.0, pmstep)
+    lnl = np.zeros((len(ds), len(pmoffs)))
     pos_radec, rvel_ra = pal5_data()
+
     print("Determining good distance and parallel proper motion...")
+
     for ii, d in tqdm.tqdm(enumerate(ds)):
         for jj, pmoff in enumerate(pmoffs):
             if alongbfpm:
@@ -762,7 +965,7 @@ def pal5_dpmguess(
                 vo=vo,
                 solarmotion=[-11.1, 24.0, 7.25],
             ).flip()
-            ts = numpy.linspace(0.0, 3.0, 1001)
+            ts = np.linspace(0.0, 3.0, 1001)
             progt.integrate(ts, pot)
             progt._orb.orbit[:, 1] *= -1.0
             progt._orb.orbit[:, 2] *= -1.0
@@ -777,14 +980,14 @@ def pal5_dpmguess(
             ipvlos = interpolate.InterpolatedUnivariateSpline(toras, tovloss)
             todecs = ipdec(doras) - dodecs
             tovloss = ipvlos(doras) - dovloss
-            est_trackRADec_trailing = numpy.zeros((1, len(doras), 2))
+            est_trackRADec_trailing = np.zeros((1, len(doras), 2))
             est_trackRADec_trailing[0, :, 0] = doras
             est_trackRADec_trailing[0, :, 1] = todecs
-            est_trackRAVlos_trailing = numpy.zeros((1, len(doras), 2))
+            est_trackRAVlos_trailing = np.zeros((1, len(doras), 2))
             est_trackRAVlos_trailing[0, :, 0] = doras
             est_trackRAVlos_trailing[0, :, 1] = tovloss
             lnl[ii, jj] = (
-                numpy.sum(
+                np.sum(
                     pal5_lnlike(
                         pos_radec,
                         rvel_ra,
@@ -792,32 +995,44 @@ def pal5_dpmguess(
                         est_trackRADec_trailing,  # hack
                         est_trackRAVlos_trailing,
                         est_trackRAVlos_trailing,  # hack
-                        numpy.array([0.0]),
-                        numpy.array([0.0]),
+                        np.array([0.0]),
+                        np.array([0.0]),
                         None,
                     )[0, :3:2]
                 )
                 - 0.5 * pm ** 2.0 / 0.186 ** 2.0
             )  # pm measurement
-    bestd = ds[numpy.unravel_index(numpy.argmax(lnl), lnl.shape)[0]]
+
+    bestd = ds[np.unravel_index(np.argmax(lnl), lnl.shape)[0]]
+
     if alongbfpm:
         bestpmoff = (
             (bestd - 24.0) * 0.099
             + 0.0769
-            + pmoffs[numpy.unravel_index(numpy.argmax(lnl), lnl.shape)[1]]
+            + pmoffs[np.unravel_index(np.argmax(lnl), lnl.shape)[1]]
         )
     else:
-        bestpmoff = pmoffs[
-            numpy.unravel_index(numpy.argmax(lnl), lnl.shape)[1]
-        ]
+        bestpmoff = pmoffs[np.unravel_index(np.argmax(lnl), lnl.shape)[1]]
+
     return bestd, bestpmoff, lnl, ds, pmoffs
 
 
 # /def
 
 
+# --------------------------------------------------------------------------
+
+
 def pal5_data():
-    pos_radec = numpy.array(
+    """Palomar 5 Data.
+
+    Returns
+    -------
+    pos_radec: [n, 3] array
+    rvel_ra: [n, 3] array
+
+    """
+    pos_radec = np.array(
         [
             [241.48, 6.41, 0.09],
             [240.98, 6.15, 0.09],
@@ -841,7 +1056,7 @@ def pal5_data():
             [226.55, -2.59, 0.14],
         ]
     )
-    rvel_ra = numpy.array(
+    rvel_ra = np.array(
         [
             [225 + 15 * 15 / 60 + 48.19 * 0.25 / 60, -55.9, 1.2],
             [225 + 15 * 15 / 60 + 49.70 * 0.25 / 60, -56.9, 0.4],
@@ -916,3 +1131,6 @@ def pal5_data():
 
 
 # /def
+
+###############################################################################
+# END

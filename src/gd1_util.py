@@ -1,20 +1,73 @@
+# -*- coding: utf-8 -*-
+
+# ----------------------------------------------------------------------------
+#
+# TITLE   : gd1_util
+# PROJECT : Pal 5 update MW pot constraints
+#
+# ----------------------------------------------------------------------------
+
+# Docstring
+"""GD1 5 Utility.
+
+Routing Listings
+----------------
+
+References
+----------
+https://github.com/jobovy/mwhalo-shape-2016
+
+"""
+
+__author__ = "Jo Bovy"
+__copyright__ = "Copyright 2016, 2020, "
+__maintainer__ = "Nathaniel Starkman"
+
+# __all__ = [""]
+
+
+###############################################################################
+# IMPORTS
+
+# GENERAL
 import copy
 import numpy
 from scipy import interpolate
 from galpy import potential
+
+# CUSTOM
 from galpy.actionAngle import actionAngleIsochroneApprox, estimateBIsochrone
 from galpy.actionAngle import actionAngleTorus
 from galpy.orbit import Orbit
 from galpy.df import streamdf
 from galpy.util import bovy_conversion, bovy_coords
-import MWPotential2014Likelihood
-from MWPotential2014Likelihood import _REFR0, _REFV0
+
+# PROJECT-SPECIFIC
+from . import MWPotential2014Likelihood
+from .MWPotential2014Likelihood import _REFR0, _REFV0
+
+
+###############################################################################
+# PARAMETERS
 
 # Coordinate transformation routines
-_TKOP = numpy.zeros((3, 3))
-_TKOP[0, :] = [-0.4776303088, -0.1738432154, 0.8611897727]
-_TKOP[1, :] = [0.510844589, -0.8524449229, 0.111245042]
-_TKOP[2, :] = [0.7147776536, 0.4930681392, 0.4959603976]
+# _TKOP = numpy.zeros((3, 3))
+# _TKOP[0, :] = [-0.4776303088, -0.1738432154, 0.8611897727]
+# _TKOP[1, :] = [0.510844589, -0.8524449229, 0.111245042]
+# _TKOP[2, :] = [0.7147776536, 0.4930681392, 0.4959603976]
+
+_TKOP = numpy.array(
+    [
+        [-0.4776303088, -0.1738432154, 0.8611897727],
+        [0.510844589, -0.8524449229, 0.111245042],
+        [0.7147776536, 0.4930681392, 0.4959603976],
+    ]
+)
+
+
+###############################################################################
+# CODE
+###############################################################################
 
 
 @bovy_coords.scalarDecorator
@@ -40,13 +93,20 @@ def lb_to_phi12(l, b, degree=False):
     ra = radec[:, 0]
     dec = radec[:, 1]
     XYZ = numpy.array(
-        [numpy.cos(dec) * numpy.cos(ra), numpy.cos(dec) * numpy.sin(ra), numpy.sin(dec)]
+        [
+            numpy.cos(dec) * numpy.cos(ra),
+            numpy.cos(dec) * numpy.sin(ra),
+            numpy.sin(dec),
+        ]
     )
     phiXYZ = numpy.dot(_TKOP, XYZ)
     phi2 = numpy.arcsin(phiXYZ[2])
     phi1 = numpy.arctan2(phiXYZ[1], phiXYZ[0])
     phi1[phi1 < 0.0] += 2.0 * numpy.pi
     return numpy.array([phi1, phi2]).T
+
+
+# /def
 
 
 @bovy_coords.scalarDecorator
@@ -82,6 +142,9 @@ def phi12_to_lb(phi1, phi2, degree=False):
     ra[ra < 0.0] += 2.0 * numpy.pi
     # Now convert to l,b
     return bovy_coords.radec_to_lb(ra, dec)
+
+
+# /def
 
 
 @bovy_coords.scalarDecorator
@@ -144,6 +207,9 @@ def pmllpmbb_to_pmphi12(pmll, pmbb, l, b, degree=False):
     return (trans * numpy.array([[pmra, pmdec], [pmra, pmdec]])).sum(1).T
 
 
+# /def
+
+
 @bovy_coords.scalarDecorator
 @bovy_coords.degreeDecorator([2, 3], [])
 def pmphi12_to_pmllpmbb(pmphi1, pmphi2, phi1, phi2, degree=False):
@@ -195,11 +261,16 @@ def pmphi12_to_pmllpmbb(pmphi1, pmphi2, phi1, phi2, degree=False):
     trans = numpy.zeros((2, 2, len(ra)))
     for ii in range(len(ra)):
         trans[:, :, ii] = numpy.dot(AInv[:, :, ii], TAphi[:, :, ii])[1:, 1:]
-    pmradec = (trans * numpy.array([[pmphi1, pmphi2], [pmphi1, pmphi2]])).sum(1).T
+    pmradec = (
+        (trans * numpy.array([[pmphi1, pmphi2], [pmphi1, pmphi2]])).sum(1).T
+    )
     pmra = pmradec[:, 0]
     pmdec = pmradec[:, 1]
     # Now convert to pmll
     return bovy_coords.pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec)
+
+
+# /def
 
 
 def convert_track_lb_to_phi12(track):
@@ -217,14 +288,23 @@ def convert_track_lb_to_phi12(track):
     return out
 
 
+# /def
+
+
 def phi12_to_lb_6d(phi1, phi2, dist, pmphi1, pmphi2, vlos):
     l, b = phi12_to_lb(phi1, phi2, degree=True)
     pmll, pmbb = pmphi12_to_pmllpmbb(pmphi1, pmphi2, phi1, phi2, degree=True)
     return [l, b, dist, pmll, pmbb, vlos]
 
 
+# /def
+
+
 def timeout_handler(signum, frame):
     raise Exception("Calculation timed-out")
+
+
+# /def
 
 
 def predict_gd1obs(
@@ -340,6 +420,9 @@ def predict_gd1obs(
     return (track_phi, success)
 
 
+# /def
+
+
 def gd1_lnlike(posdata, distdata, pmdata, rvdata, track_phi):
     """
     Returns array [5] with log likelihood for each b) data set (phi2,dist,pmphi1,pmphi2,vlos)
@@ -361,7 +444,8 @@ def gd1_lnlike(posdata, distdata, pmdata, rvdata, track_phi):
         track_phi[sindx, 0], track_phi[sindx, 2], k=1
     )  # to be on the safe side
     out[1] = -0.5 * numpy.sum(
-        (ipdist(distdata[:, 0]) - distdata[:, 1]) ** 2.0 / distdata[:, 2] ** 2.0
+        (ipdist(distdata[:, 0]) - distdata[:, 1]) ** 2.0
+        / distdata[:, 2] ** 2.0
     )
     # pmphi1
     ippmphi1 = interpolate.InterpolatedUnivariateSpline(
@@ -385,6 +469,9 @@ def gd1_lnlike(posdata, distdata, pmdata, rvdata, track_phi):
         (ipvlos(rvdata[:, 0]) - rvdata[:, 2]) ** 2.0 / rvdata[:, 3] ** 2.0
     )
     return out
+
+
+# /def
 
 
 def setup_sdf(
@@ -431,7 +518,9 @@ def setup_sdf(
         if verbose:
             print(pot[2]._c, isob, estb)
     if not logpot and numpy.fabs(pot[2]._b - 1.0) > 0.05:
-        aAI = actionAngleIsochroneApprox(pot=pot, b=isob, tintJ=1000.0, ntintJ=30000)
+        aAI = actionAngleIsochroneApprox(
+            pot=pot, b=isob, tintJ=1000.0, ntintJ=30000
+        )
     else:
         ts = numpy.linspace(0.0, 100.0, 10000)
         aAI = actionAngleIsochroneApprox(
@@ -480,6 +569,11 @@ def setup_sdf(
             multi=multi,
         )
     return sdf
+
+
+# /def
+
+# --------------------------------------------------------------------------
 
 
 def gd1_data():
@@ -558,3 +652,7 @@ def gd1_data():
         ]
     )
     return (posdata, distdata, pmdata, rvdata)
+
+
+###############################################################################
+# END
