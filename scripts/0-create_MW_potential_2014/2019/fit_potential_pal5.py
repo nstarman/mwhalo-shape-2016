@@ -81,7 +81,12 @@ if __name__ == "__main__":
 
     plt.figure(figsize=(16, 5))
     p_b15_pal5_voro = su.fit(
-        fitc=True, c=None, addpal5=True, fitvoro=True, mc16=True
+        fitc=True,
+        c=None,
+        addpal5=True,
+        fitvoro=True,
+        mc16=True,
+        plots="figures/pal5/fit.pdf",
     )
 
     # -----------------------
@@ -96,9 +101,9 @@ if __name__ == "__main__":
             params=p_b15_pal5_voro[0],
             fitc=True,
             c=None,
-            plots=False,
             addpal5=True,
             fitvoro=True,
+            plots="figures/pal5/mwpot14varyc-fitvoro-pal5-fit.pdf",
         )
         save_pickles(samples_savefilename, s)
 
@@ -124,7 +129,9 @@ if __name__ == "__main__":
         cs = numpy.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
-            dum = su.fit(fitc=False, c=c)
+            dum = su.fit(
+                fitc=False, c=c, plots="figures/pal5/mwpot14varyc-bf-fit.pdf"
+            )
             bf_params.append(dum[0])
         save_pickles(bf_savefilename, cs, bf_params)
 
@@ -162,7 +169,7 @@ if __name__ == "__main__":
 
     # -----------------------
 
-    with open('output/fit_potential_pal5.txt', "wb") as file:
+    with open("output/fit_potential_pal5.txt", "wb") as file:
 
         sortedc = numpy.array(sorted(s[cindx]))
         file.write(

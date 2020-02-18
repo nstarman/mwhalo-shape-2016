@@ -69,7 +69,7 @@ import script_util as su
 
 numpy.random.seed(1)  # set random number seed. TODO use numpy1.8 generator
 
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 save_figures = False  # TODO needs papers-directory
 
 
@@ -138,7 +138,12 @@ if __name__ == "__main__":
         cs = numpy.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
-            dum = su.fit(fitc=False, c=c, dblexp=True, plots=False)
+            dum = su.fit(
+                fitc=False,
+                c=c,
+                dblexp=True,
+                plots="figures/mwpot_dblexp/mwpot14varyc-dblexp-bf-fit.pdf",
+            )
             bf_params.append(dum[0])
         save_pickles(bf_savefilename, cs, bf_params)
 
@@ -154,7 +159,7 @@ if __name__ == "__main__":
             params=p_exp_cfree[0],
             fitc=True,
             c=None,
-            plots=False,
+            plots="figures/mwpot_dblexp/mwpot14varyc-dblexp-samples.pdf",
             dblexp=True,
         )
         save_pickles(samples_savefilename, s)
@@ -230,7 +235,7 @@ if __name__ == "__main__":
             params=p_exp_cfree_voro[0],
             fitc=True,
             c=None,
-            plots=False,
+            plots="figures/mwpot_dblexp/mwpot14varyc-dblexp-fitvoro-samples.pdf",
             dblexp=True,
             fitvoro=True,
         )
@@ -310,7 +315,7 @@ if __name__ == "__main__":
             params=p_exp_cfree_voro_wgas[0],
             fitc=True,
             c=None,
-            plots=False,
+            plots="figures/mwpot_dblexp/mwpot14varyc-dblexp-fitvoro-addgas-samples.pdf",
             dblexp=True,
             fitvoro=True,
             addgas=True,

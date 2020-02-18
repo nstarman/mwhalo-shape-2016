@@ -80,7 +80,12 @@ if __name__ == "__main__":
 
     plt.figure(figsize=(16, 5))
     p_b15_gd1_voro = su.fit(
-        fitc=True, c=None, addgd1=True, fitvoro=True, mc16=True
+        fitc=True,
+        c=None,
+        addgd1=True,
+        fitvoro=True,
+        mc16=True,
+        plots="figures/gd1/fit.pdf",
     )
 
     # -----------------------
@@ -95,7 +100,7 @@ if __name__ == "__main__":
             params=p_b15_gd1_voro[0],
             fitc=True,
             c=None,
-            plots=False,
+            plots="figures/gd1/mwpot14varyc-fitvoro-gd1-samples.pdf",
             addgd1=True,
             fitvoro=True,
         )
@@ -123,7 +128,9 @@ if __name__ == "__main__":
         cs = numpy.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
-            dum = su.fit(fitc=False, c=c)
+            dum = su.fit(
+                fitc=False, c=c, plots="figures/gd1/mwpot14varyc-bf-fit.pdf"
+            )
             bf_params.append(dum[0])
         save_pickles(bf_savefilename, cs, bf_params)
 
@@ -157,11 +164,11 @@ if __name__ == "__main__":
         xrange=[0.5, 2.5],
         normed=True,
     )
-    plt.savefig("figures/pal5/mwpot14varyc-fitvoro-gd1-shape_hist")
+    plt.savefig("figures/gd1/mwpot14varyc-fitvoro-gd1-shape_hist")
 
     # -----------------------
 
-    with open('output/fit_potential_gd1.txt', "wb") as file:
+    with open("output/fit_potential_gd1.txt", "wb") as file:
 
         sortedc = numpy.array(sorted(s[cindx]))
         file.write(

@@ -93,7 +93,13 @@ if __name__ == "__main__":
 
     plt.figure(figsize=(16, 5))
     p_b15_pal5gd1_voro = su.fit(
-        fitc=True, c=None, addpal5=True, addgd1=True, fitvoro=True, mc16=True
+        fitc=True,
+        c=None,
+        addpal5=True,
+        addgd1=True,
+        fitvoro=True,
+        mc16=True,
+        plots="figures/combo_pal5_gd1/fit.pdf",
     )
 
     # -----------------------
@@ -108,7 +114,7 @@ if __name__ == "__main__":
             params=p_b15_pal5gd1_voro[0],
             fitc=True,
             c=None,
-            plots=False,
+            plots="figures/combo_pal5_gd1/mwpot14varyc-fitvoro-pal5gd1-samples.pdf",
             mc16=True,
             addpal5=True,
             addgd1=True,
@@ -125,7 +131,7 @@ if __name__ == "__main__":
         True,
         addpal5=True,
         addgd1=True,
-        figures="figures/mwpot14varyc-fitvoro-pal5gd1-samples-corner.pdf",
+        figures="figures/combo_pal5_gd1/mwpot14varyc-fitvoro-pal5gd1-samples-corner.pdf",
     )
 
     # -----------------------
@@ -139,7 +145,11 @@ if __name__ == "__main__":
         cs = numpy.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
-            dum = su.fit(fitc=False, c=c)
+            dum = su.fit(
+                fitc=False,
+                c=c,
+                plots="figures/combo_pal5_gd1/mwpot14varyc-bf-fit.pdf",
+            )
             bf_params.append(dum[0])
         save_pickles(bf_savefilename, cs, bf_params)
 
@@ -157,7 +167,7 @@ if __name__ == "__main__":
         True,
         cs,
         bf_params,
-        savefig="figures/pal5/mwpot14varyc-bf-combo_pal5_gd1-dependence.pdf",
+        savefig="figures/combo_pal5_gd1/mwpot14varyc-bf-combo_pal5_gd1-dependence.pdf",
     )
     if save_figures:
         plt.savefig(
@@ -182,8 +192,11 @@ if __name__ == "__main__":
         xrange=[0.5, 1.5],
         normed=True,
     )
+    plt.savefig(
+        "figures/combo_pal5_gd1/mwpot14varyc-bf-combo_pal5_gd1-shape_hist.pdf"
+    )
 
-    with open('output/fit_potential_combo-pal5-gd1.txt', "wb") as file:
+    with open("output/fit_potential_combo-pal5-gd1.txt", "wb") as file:
         sortedc = numpy.array(sorted(s[cindx][-50000:]))
         file.write(
             "2.5%% and 0.5%% lower limits: %.3f, %.3f"
@@ -242,9 +255,11 @@ if __name__ == "__main__":
         )
     hmass = numpy.array(hmass)
 
-    with open('output/fit_potential_combo-pal5-gd1.txt', "ab") as file:  # append
+    with open(
+        "output/fit_potential_combo-pal5-gd1.txt", "ab"
+    ) as file:  # append
 
-        file.write('\nMass Constraints:')
+        file.write("\nMass Constraints:")
 
         sortedhm = numpy.array(sorted(hmass))
         file.write(
@@ -283,7 +298,7 @@ if __name__ == "__main__":
         xlabel=r"$M_{\mathrm{halo}} (r<20\,\mathrm{kpc})\,(M_\odot)$",
         ylabel=r"$c/a$",
     )
-    plt.savefig("")
+    plt.savefig("figures/combo_pal5_gd1/scatterplot.pdf")
 
     # -----------------------
 

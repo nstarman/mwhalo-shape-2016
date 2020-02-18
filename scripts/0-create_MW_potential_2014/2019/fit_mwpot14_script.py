@@ -130,7 +130,11 @@ if __name__ == "__main__":
         cs = numpy.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
-            dum = su.fit(fitc=False, c=c)
+            dum = su.fit(
+                fitc=False,
+                c=c,
+                plots="figures/mwpot14/mwpot14varyc-bf-fit.pdf",
+            )
             bf_params.append(dum[0])
         save_pickles(bf_savefilename, cs, bf_params)
 
@@ -154,7 +158,7 @@ if __name__ == "__main__":
             params=p_b15_cfree[0],
             fitc=True,
             c=None,
-            plots=False,
+            plots="figures/mwpot14/mwpot14varyc-samples.pdf",
             _use_emcee=True,
         )
         save_pickles(samples_savefilename, s)
@@ -227,7 +231,7 @@ if __name__ == "__main__":
             params=p_b15_voro[0],
             fitc=True,
             c=None,
-            plots=False,
+            plots="figures/mwpot14/mwpot14varyc-fitvoro-samples.pdf",
             fitvoro=True,
         )
         save_pickles(samples_savefilename, s)
