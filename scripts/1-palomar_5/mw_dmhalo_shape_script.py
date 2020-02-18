@@ -44,10 +44,7 @@ import warnings
 from tqdm import tqdm
 
 # galpy
-# from galpy.potential import MWPotential2014
 from galpy.actionAngle import actionAngleIsochroneApprox
-
-# from galpy.actionAngle import actionAngleTorus
 from galpy.orbit import Orbit
 from galpy.df import streamdf
 from galpy.util import bovy_plot, bovy_conversion, bovy_coords, save_pickles
@@ -117,8 +114,8 @@ def plot_data_add_labels(
             plt.ylabel(r"$\mathrm{Dec}\,(\mathrm{degree})$")
         else:
             plt.gca().yaxis.set_major_formatter(nullfmt)
-        plt.xlim(250.0, 221.0)
-        plt.ylim(-5.0, 9.0)
+        plt.xlim(250.,210.)
+        plt.ylim(-15.,9.)
         bovy_plot._add_ticks()
         plt.errorbar(
             pos_radec[:, 0],
@@ -310,8 +307,8 @@ if __name__ == "__main__":
         trackRADec_trailing[:, 0],
         trackRADec_trailing[:, 1],
         color=sns.color_palette()[0],
-        xrange=[250.0, 220.0],
-        yrange=[-5.0, 9.0],
+        xrange=[250.0, 210.0],
+        yrange=[-15.0, 9.0],
         xlabel=r"$\mathrm{RA}\,(\mathrm{degree})$",
         ylabel=r"$\mathrm{Dec}\,(\mathrm{degree})$",
         gcf=True,
@@ -349,7 +346,7 @@ if __name__ == "__main__":
         trackRADec_trailing[:, 0],
         sdf_trailing._interpolatedObsTrackLB[:, 3],
         color=sns.color_palette()[0],
-        xrange=[250.0, 220.0],
+        xrange=[250.0, 210.0],
         yrange=[-80.0, 0.0],
         xlabel=r"$\mathrm{RA}\,(\mathrm{degree})$",
         ylabel=r"$V_{\mathrm{los}}\,(\mathrm{km\,s}^{-1})$",
