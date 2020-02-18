@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # ----------------------------------------------------------------------------
@@ -8,26 +7,28 @@
 #
 # ----------------------------------------------------------------------------
 
-### Docstring and Metadata
-r"""initialization file
+# Docstring and Metadata
+"""Constrain Palomar 5 Potential with added data.
+
+References
+----------
+..[1] https://github.com/jobovy/mwhalo-shape-2016
+
 """
 
-# __author__ = ""
-# __copyright__ = "Copyright 2018, "
-# __credits__ = [""]
-# __license__ = "GPL3"
-# __version__ = "0.0.0"
-# __maintainer__ = ""
-# __email__ = ""
-# __status__ = "Production"
+__author__ = "Nathaniel Starkman"
+__copyright__ = "Copyright 2020"
+__credits__ = ["Jo Bovy"]
+__license__ = "GPL3"
+
 
 ##############################################################################
-### Imports
+# IMPORTS
 
-# General
+# GENERAL
 
 
-# Project-Specific
+# PROJECT-SPECIFIC
 
 
 ##############################################################################

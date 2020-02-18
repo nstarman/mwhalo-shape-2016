@@ -12,7 +12,6 @@
 
 Routing Listings
 ----------------
-filelen
 load_samples
 find_starting_point
 lnp
@@ -30,7 +29,6 @@ __maintainer__ = "Nathaniel Starkman"
 
 __all__ = [
     "_DATADIR",
-    "filelen",
     "load_samples",
     "find_starting_point",
     "lnp",
@@ -49,15 +47,14 @@ import time
 import pickle
 import csv
 from optparse import OptionParser
-import subprocess
-import warnings
+
 import numpy
 from scipy.special import logsumexp
 import emcee
 
 # PROJECT-SPECIFIC
 # fmt: off
-import sys; sys.path.append('../')
+import sys; sys.path.append('../../')
 # fmt: on
 from src import pal5_util
 
@@ -73,38 +70,64 @@ _DATADIR = os.getenv("DATADIR")
 ###############################################################################
 
 
-def filelen(filename):
-    p = subprocess.Popen(
-        ["wc", "-l", filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    result, err = p.communicate()
-    if p.returncode != 0:
-        raise IOError(err)
+def load_samples(options: OptionParser):
+    """Load Samples.
 
-    return int(result.strip().split()[0])
+    Parameters
+    ----------
+    options: OptionParser
 
+    Returns
+    -------
+    samples: array
 
-# /def
-
-
-def load_samples(options):
+    """
     if os.path.exists(options.samples_savefilename):
         with open(options.samples_savefilename, "rb") as savefile:
-            s = pickle.load(savefile)
+            samples = pickle.load(savefile)
     else:
         raise IOError(
-            "File %s that is supposed to hold the potential samples does not exist"
-            % options.samples_savefilename
+            f"File {options.samples_savefilename} that is supposed "
+            "to hold the potential samples does not exist"
         )
 
-    return s
+    return samples
 
 
 # /def
 
 
-def find_starting_point(options, pot_params, dist, pmra, pmdec, sigv):
-    # Find a decent starting point, useTM to speed this up, bc it doesn't matter much
+# ------------------------------------------------------------------------
+
+
+def find_starting_point(
+    options: OptionParser,
+    pot_params: list,
+    dist: float,
+    pmra: float,
+    pmdec: float,
+    sigv: float,
+):
+    """Find Starting Point.
+
+    Find a decent starting point
+    useTM to speed this up, bc it doesn't matter much
+
+    Parameters
+    ----------
+    options: OptionParser
+    pot_params: list
+    dist: float
+    pmra: float
+    pmdec: float
+    sigv: float
+
+    Returns
+    -------
+    maxlk: array
+
+    """
+    # start with a prediction
     interpcs = [0.65, 0.75, 0.875, 1.0, 1.125, 1.25, 1.5, 1.65]
     cs = numpy.arange(0.7, 1.61, 0.01)
     pal5varyc_like = pal5_util.predict_pal5obs(
@@ -123,7 +146,10 @@ def find_starting_point(options, pot_params, dist, pmra, pmdec, sigv):
         trailing_only=True,
         verbose=False,
     )
-    pos_radec, rvel_ra = pal5_util.pal5_data()
+
+    # load data against which to compare
+    pos_radec, rvel_ra = pal5_util.pal5_data_2016()
+
     if options.fitsigma:
         lnlike = numpy.sum(
             pal5_util.pal5_lnlike(
@@ -140,7 +166,8 @@ def find_starting_point(options, pot_params, dist, pmra, pmdec, sigv):
             axis=1,
         )
     else:
-        # For each one, move the track up and down a little to simulate sig changes
+        # For each one, move the track up and down a little
+        # to simulate sig changes
         deco = numpy.linspace(-0.5, 0.5, 101)
         lnlikes = numpy.zeros((len(cs), len(deco))) - 100000000000000000.0
         for jj, do in enumerate(deco):
@@ -158,28 +185,49 @@ def find_starting_point(options, pot_params, dist, pmra, pmdec, sigv):
                 pal5varyc_like[6],
             )[:, 0]
         lnlike = numpy.amax(lnlikes, axis=1)
+
     return cs[numpy.argmax(lnlike)]
 
 
 # /def
 
 
-def lnp(p, pot_params, options):
-    warnings.filterwarnings(
-        "ignore", message="Using C implementation to integrate orbits"
-    )
+# ------------------------------------------------------------------------
+
+
+def lnp(p: list, pot_params: list, options: OptionParser):
+    """Log Likelihood.
+
+    Parameters
+    ----------
+    p: list
+    pot_params: list
+    options: OptionParser
+
+    Returns
+    -------
+    ndarray
+
+    """
+    # warnings.filterwarnings(
+    #     "ignore", message="Using C implementation to integrate orbits"
+    # )
     # p=[c,vo/220,dist/22.,pmo_parallel,pmo_perp] and ln(sigv) if fitsigma
+
+    # Parameters
     c = p[0]
     vo = p[1] * pal5_util._REFV0
-    dist = p[2] * 22.0
+    dist = p[2] * 22.0  # TODO in units of 22 kpc, change to 20
     pmra = -2.296 + p[3] + p[4]
     pmdecpar = 2.257 / 2.296
     pmdecperp = -2.296 / 2.257
     pmdec = -2.257 + p[3] * pmdecpar + p[4] * pmdecperp
+
     if options.fitsigma:
         sigv = 0.4 * numpy.exp(p[5])
     else:
         sigv = 0.4
+
     # Priors
     if c < 0.5:
         return -100000000000000000.0
@@ -197,7 +245,9 @@ def lnp(p, pot_params, options):
         return -10000000000000000.0
     elif options.fitsigma and sigv > 1.0:
         return -10000000000000000.0
+
     # Setup the model
+    trailing_only = False  # NOTE change
     pal5varyc_like = pal5_util.predict_pal5obs(
         pot_params,
         c,
@@ -207,14 +257,16 @@ def lnp(p, pot_params, options):
         pmdec=pmdec,
         ro=options.ro,
         vo=vo,
-        trailing_only=True,
+        trailing_only=trailing_only,
         verbose=False,
         sigv=sigv,
         td=options.td,
         useTM=False,
         nTrackChunks=8,
     )
-    pos_radec, rvel_ra = pal5_util.pal5_data()
+
+    pos_radec, rvel_ra = pal5_util.pal5_total_data()  # NOTE changed
+
     if options.fitsigma:
         lnlike = pal5_util.pal5_lnlike(
             pos_radec,
@@ -226,6 +278,7 @@ def lnp(p, pot_params, options):
             pal5varyc_like[4],
             pal5varyc_like[5],
             pal5varyc_like[6],
+            trailing_only=trailing_only,
         )
         if not pal5varyc_like[7]:
             addllnlike = -15.0  # penalize
@@ -241,7 +294,9 @@ def lnp(p, pot_params, options):
             + -0.5 * (pmra + 2.296) ** 2.0 / 0.186 ** 2.0
             - 0.5 * (pmdec + 2.257) ** 2.0 / 0.181 ** 2.0
         )
-    # If not fitsigma, move the track up and down a little to simulate sig changes
+
+    # If not fitsigma, move the track up and down a little
+    # to simulate sig changes
     deco = numpy.linspace(-0.5, 0.5, 101)
     lnlikes = numpy.zeros(len(deco)) - 100000000000000000.0
     for jj, do in enumerate(deco):
@@ -259,6 +314,7 @@ def lnp(p, pot_params, options):
             pal5varyc_like[6],
         )[0, 0]
 
+    # Calculate and return a log-likelihood
     return (
         logsumexp(lnlikes)
         + pal5_util.pal5_lnlike(
@@ -333,7 +389,11 @@ def get_options():
         help="Distance to the Galactic center in kpc",
     )
     parser.add_option(
-        "--td", dest="td", default=5.0, type="float", help="Age of the stream"
+        "--td",
+        dest="td",
+        default=5.0,
+        type="float",
+        help="Age of the stream in Gyr",
     )
     parser.add_option(
         "--samples_savefilename",
@@ -359,11 +419,19 @@ def get_options():
     return parser
 
 
+# /def
+
+
+# ------------------------------------------------------------------------
+
+
 if __name__ == "__main__":
+
     parser = get_options()
     options, args = parser.parse_args()
     # Set random seed for potential selection
     numpy.random.seed(1)
+
     # Load potential parameters
     if options.bf_b15:
         pot_params = [
@@ -377,13 +445,14 @@ if __name__ == "__main__":
         ]
     else:
         pot_samples = load_samples(options)
-        import pdb; pdb.set_trace()
         rndindx = numpy.random.permutation(pot_samples.shape[1])[options.pindx]
         pot_params = pot_samples[:, rndindx]
     print(pot_params)
+
     # Now set the seed for the MCMC
     numpy.random.seed(options.seed)
     nwalkers = 10 + 2 * options.fitsigma
+
     # For a fiducial set of parameters, find a good fit to use as the starting
     # point
     all_start_params = numpy.zeros((nwalkers, 5 + options.fitsigma))
@@ -405,7 +474,9 @@ if __name__ == "__main__":
             start_params = numpy.array([cstart, 1.0, dist / 22.0, 0.0, 0.0])
             step = numpy.array([0.05, 0.05, 0.05, 0.05, 0.01])
         nn = 0
+        print("walker: ", end="")
         while nn < nwalkers:
+            print(nn, end=", ")
             all_start_params[nn] = (
                 start_params
                 + numpy.random.normal(size=len(start_params)) * step
@@ -416,8 +487,9 @@ if __name__ == "__main__":
             if start_lnprob0[nn] > -1000000.0:
                 nn += 1
     else:
+        print("continuing chain")
         # Get the starting point from the output file
-        with open(options.outfilename, "rb") as savefile:
+        with open(options.outfilename, "r") as savefile:
             all_lines = savefile.readlines()
         for nn in range(nwalkers):
             lastline = all_lines[-1 - nn]
@@ -426,12 +498,14 @@ if __name__ == "__main__":
             )
             start_lnprob0[nn] = tstart_params[-1]
             all_start_params[nn] = tstart_params[:-1]
+
     # Output
+    # pdb.set_trace()
     if os.path.exists(options.outfilename):
-        outfile = open(options.outfilename, "a", 0)
+        outfile = open(options.outfilename, "a")
     else:
         # Setup the file
-        outfile = open(options.outfilename, "w", 0)
+        outfile = open(options.outfilename, "w")
         outfile.write(
             "# potparams:%.8f,%.8f,%.8f,%.8f,%.8f\n"
             % (
@@ -470,6 +544,7 @@ if __name__ == "__main__":
                 )
         outfile.flush()
     outwriter = csv.writer(outfile, delimiter=",")
+
     # Run MCMC
     sampler = emcee.EnsembleSampler(
         nwalkers,
@@ -478,15 +553,16 @@ if __name__ == "__main__":
         args=(pot_params, options),
         threads=options.multi,
     )
+
     rstate0 = numpy.random.mtrand.RandomState().get_state()
     start = time.time()
     while time.time() < start + options.dt * 60.0:
         new_params, new_lnp, new_rstate0 = sampler.run_mcmc(
             all_start_params,
             1,
-            lnprob0=start_lnprob0,
+            log_prob0=start_lnprob0,
             rstate0=rstate0,
-            storechain=False,
+            store=False,
         )
         all_start_params = new_params
         start_lnprob0 = new_lnp
@@ -519,6 +595,7 @@ if __name__ == "__main__":
                 )
         outfile.flush()
     outfile.close()
+
 
 ###############################################################################
 # END

@@ -8,7 +8,7 @@
 # ----------------------------------------------------------------------------
 
 # Docstring
-"""module to run analysis of the Pal 5 stream re: halo shape.
+"""Module to run analysis of the Pal 5 stream re: halo shape.
 
 description
 
@@ -26,16 +26,20 @@ __author__ = "Jo Bovy"
 __copyright__ = "Copyright 2016, 2020, "
 __maintainer__ = "Nathaniel Starkman"
 
-# __all__ = [
-#     ""
-# ]
+__all__ = [
+    "filelen",
+    "load_samples",
+    "analyze_one_model",
+    "get_options",
+]
 
 
 ###############################################################################
 # IMPORTS
 
 # GENERAL
-import os, os.path
+import os
+import os.path
 import pickle
 import csv
 from optparse import OptionParser
@@ -70,8 +74,10 @@ def filelen(filename):
         ["wc", "-l", filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     result, err = p.communicate()
+
     if p.returncode != 0:
         raise IOError(err)
+
     return int(result.strip().split()[0])
 
 
@@ -98,6 +104,7 @@ def load_samples(options):
             "File %s that is supposed to hold the potential samples does not exist"
             % options.samples_savefilename
         )
+
     return samples
 
 
@@ -155,7 +162,7 @@ def analyze_one_model(options, cs, pot_params, dist, pmra, pmdec):
         sigv=sigv,
         td=td,
     )
-    pos_radec, rvel_ra = pal5_util.pal5_data()
+    pos_radec, rvel_ra = pal5_util.pal5_data_2016()
     pos_radec[:, 2] *= options.emult
     rvel_ra[:, 2] *= options.emult
 
@@ -171,6 +178,40 @@ def analyze_one_model(options, cs, pot_params, dist, pmra, pmdec):
 
 
 def get_options():
+    """Get Options.
+
+    Returns
+    -------
+    parser: OptionParser
+        options are set with the '--' syntax, unless otherwise indicated
+        the options are
+
+            - bf_b15
+            - seed
+            - i, '-'
+            - ro
+            - vo
+            - samples_savefilename
+            - cmin
+            - cmax
+
+            - cstep
+            - alongbfpm
+            - dmin
+            - dmax
+            - dstep
+            - dgridmin
+            - dgridmax
+            - pmmin
+            - pmmax
+            - pmstep
+            - pmgridmin
+            - pmgridmax
+            - m, '-'
+            - emult
+            - o, '-'
+
+    """
     usage = "usage: %prog [options]"
     parser = OptionParser(usage=usage)
     # Potential parameters
@@ -272,14 +313,20 @@ def get_options():
         dest="dgridmin",
         default=-6,
         type="int",
-        help="Minimum distance to consider in the final grid, in units of dstep from guess",
+        help=(
+            "Minimum distance to consider in the final grid, "
+            "in units of dstep from guess"
+        ),
     )
     parser.add_option(
         "--dgridmax",
         dest="dgridmax",
         default=7,
         type="int",
-        help="Maximum distance to consider in the final grid, in units of dstep from guess",
+        help=(
+            "Maximum distance to consider in the final grid, "
+            "in units of dstep from guess"
+        ),
     )
     # PM offsets grid
     parser.add_option(
@@ -308,14 +355,20 @@ def get_options():
         dest="pmgridmin",
         default=-3,
         type="int",
-        help="Minimum proper motion offset to consider in the final grid, in units of pmstep from guess",
+        help=(
+            "Minimum proper motion offset to consider in the final grid, "
+            "in units of pmstep from guess"
+        ),
     )
     parser.add_option(
         "--pmgridmax",
         dest="pmgridmax",
         default=4,
         type="int",
-        help="Maximum proper motion offset to consider in the final grid, in units of pmstep from guess",
+        help=(
+            "Maximum proper motion offset to consider in the final grid, "
+            "in units of pmstep from guess"
+        ),
     )
     # Multi-processing
     parser.add_option(
@@ -345,12 +398,16 @@ def get_options():
 
 # /def
 
+# -------------------------------------------------------------------
 
 if __name__ == "__main__":
+
     parser = get_options()
     options, args = parser.parse_args()
+
     # Set random seed
     numpy.random.seed(options.seed)
+
     # Load potential parameters
     if options.bf_b15:
         pot_params = [
@@ -366,7 +423,9 @@ if __name__ == "__main__":
         pot_samples = load_samples(options)
         rndindx = numpy.random.permutation(pot_samples.shape[1])[options.pindx]
         pot_params = pot_samples[:, rndindx]
+
     print(pot_params)
+
     if os.path.exists(options.outfilename):
         # Read the distance/proper motion grid from the file
         with open(options.outfilename, "rb") as savefile:
@@ -408,13 +467,17 @@ if __name__ == "__main__":
                 pms.append(
                     bestpm + (ds[-1] - bestd) * 0.099 + jj * options.pmstep
                 )
+    # /if
+
     pmdecpar = 2.257 / 2.296
+
     # Setup c grid
     cs = numpy.arange(
         options.cmin, options.cmax + options.cstep / 2.0, options.cstep
     )
     if cs[-1] > options.cmax + options.cstep / 2.0:
         cs = cs[:-1]
+
     # Output
     if os.path.exists(options.outfilename):
         # Figure out how many ds were already run from the length of the file
@@ -458,8 +521,11 @@ if __name__ == "__main__":
         outfile.write(nextline + "\n")
         outfile.flush()
         ii = 0
-    outwriter = csv.writer(outfile, delimiter=",")
+
+    # /if
+
     # Analyze each distance, pmra, pmdec
+    outwriter = csv.writer(outfile, delimiter=",")
     while ii < len(ds):
         dist = ds[ii]
         pmo = pms[ii]
@@ -475,7 +541,11 @@ if __name__ == "__main__":
             outwriter.writerow(row)
         outfile.flush()
         ii += 1
+
     outfile.close()
+
+
+# /if
 
 
 ###############################################################################

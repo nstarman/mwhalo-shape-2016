@@ -212,6 +212,7 @@ def like_func(
     out += 0.5 * (bulge_dispersion(pot, ro, vo) - 117.0) ** 2.0 / 225.0
     # Mass at 60 kpc
     out += 0.5 * (mass60(pot, ro, vo) - 4.0) ** 2.0 / 0.7 ** 2.0
+
     # Pal5
     if addpal5:
         # q = 0.94 +/- 0.05 + add'l
@@ -227,6 +228,7 @@ def like_func(
             ** 2.0
             / 0.6 ** 2.0
         )
+
     # GD-1
     if addgd1:
         # q = 0.95 +/- 0.04 + add'l
@@ -378,6 +380,7 @@ def setup_potential(
                 b=numpy.exp(params[3]) * _REFR0 / ro,
             )
         )
+
     if fitc:
         pot.append(
             potential.TriaxialNFWPotential(
@@ -398,6 +401,7 @@ def setup_potential(
                 pa=pa,
             )
         )
+
     if addgas:
         pot.append(gp)  # make sure it's the last
 
@@ -744,12 +748,10 @@ def plotDens(pot):
 # /def
 
 
-def readClemens(dsinl=0.5 / 8.0):
-    data = numpy.loadtxt(
-        "../data/mwpot14data/clemens1985_table2.dat",
-        delimiter="|",
-        comments="#",
-    )
+def readClemens(
+    dsinl=0.5 / 8.0, fpath="data/mwpot14data/clemens1985_table2.dat"
+):
+    data = numpy.loadtxt(fpath, delimiter="|", comments="#",)
     glon = data[:, 0]
     vterm = data[:, 1]
     # Remove l < 40 and l > 80
@@ -772,10 +774,12 @@ def readClemens(dsinl=0.5 / 8.0):
 # /def
 
 
-def readMcClureGriffiths(dsinl=0.5 / 8.0, bin=True):
-    data = numpy.loadtxt(
-        "../data/mwpot14data/McClureGriffiths2007.dat", comments="#"
-    )
+def readMcClureGriffiths(
+    dsinl=0.5 / 8.0,
+    bin=True,
+    fpath="data/mwpot14data/McClureGriffiths2007.dat",
+):
+    data = numpy.loadtxt(fpath, comments="#")
     glon = data[:, 0]
     vterm = data[:, 1]
     # Remove l > 320 and l > 80
@@ -794,12 +798,12 @@ def readMcClureGriffiths(dsinl=0.5 / 8.0, bin=True):
 # /def
 
 
-def readMcClureGriffiths16(dsinl=0.5 / 8.0, bin=True):
-    data = numpy.loadtxt(
-        "../data/mwpot14data/McClureGriffiths2016.dat",
-        comments="#",
-        delimiter="&",
-    )
+def readMcClureGriffiths16(
+    dsinl=0.5 / 8.0,
+    bin=True,
+    fpath="data/mwpot14data/McClureGriffiths2016.dat",
+):
+    data = numpy.loadtxt(fpath, comments="#", delimiter="&",)
     glon = data[:, 0]
     vterm = data[:, 1]
     # Remove l < 30 and l > 80
