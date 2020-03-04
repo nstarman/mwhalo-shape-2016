@@ -19,14 +19,6 @@ incldued for each fit. Figures 1 and 9 in the paper are produced by this
 notebook. Figure 10 of the best-fit force field and the constraints from disk
 stars, Pal 5, and GD-1 data is also made by this notebook.
 
-Routing Listings
-----------------
-fit
-sample
-sample_multi
-plot_samples
-plot_mcmc_c
-
 """
 
 __author__ = "Jo Bovy"
@@ -186,6 +178,8 @@ if __name__ == "__main__":
     su.plot_mcmc_c(
         s,
         False,
+        cs,
+        bf_params,
         savefig="figures/mwpot_dblexp/varyc-dblexp-samples-dependence.pdf",
     )
 
@@ -225,7 +219,7 @@ if __name__ == "__main__":
 
     # -----------------------
 
-    samples_savefilename = "mwpot14varyc-dblexp-fitvoro-samples.pkl"
+    samples_savefilename = "output/mwpot14varyc-dblexp-fitvoro-samples.pkl"
     if os.path.exists(samples_savefilename):
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
@@ -263,6 +257,8 @@ if __name__ == "__main__":
     su.plot_mcmc_c(
         s,
         True,
+        cs,
+        bf_params,
         savefig="figures/mwpot_dblexp/varyc-dblexp-fitvoro-samples-dependence.pdf",
     )
 
@@ -344,6 +340,8 @@ if __name__ == "__main__":
     su.plot_mcmc_c(
         s,
         True,
+        cs,
+        bf_params,
         savefig="figures/mwpot_dblexp/varyc-dblexp-fitvoro-addgas-samples-dependence.pdf",
     )
 

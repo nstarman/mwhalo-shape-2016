@@ -434,7 +434,7 @@ def sample(
     samples = numpy.array(samples).T
 
     if plots:
-        plot_samples(samples, fitc, ro=ro, vo=vo)
+        plot_samples(samples, fitc, fitvoro, ro=ro, vo=vo)
 
     return samples
 
@@ -563,9 +563,9 @@ def sample_multi(
         new_params, new_lnp, new_rstate0 = sampler.run_mcmc(
             all_start_params,
             1,
-            lnprob0=start_lnprob0,
+            log_prob0=start_lnprob0,
             rstate0=rstate0,
-            storechain=False,
+            store=False,
         )
         all_start_params = new_params
         start_lnprob0 = new_lnp
@@ -575,9 +575,9 @@ def sample_multi(
         new_params, new_lnp, new_rstate0 = sampler.run_mcmc(
             all_start_params,
             1,
-            lnprob0=start_lnprob0,
+            log_prob0=start_lnprob0,
             rstate0=rstate0,
-            storechain=False,
+            store=False,
         )
         all_start_params = new_params
         start_lnprob0 = new_lnp
@@ -591,7 +591,7 @@ def sample_multi(
     samples = out
 
     if plots:
-        plot_samples(samples, fitc, ro=ro, vo=vo)
+        plot_samples(samples, fitc, fitvoro, ro=ro, vo=vo)
 
     return samples
 

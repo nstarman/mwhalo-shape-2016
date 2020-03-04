@@ -75,34 +75,35 @@ save_figures = False  # TODO needs papers-directory
 
 if __name__ == "__main__":
 
-    # -----------------------
-    # Adding in the force measurements from GD-1; also fitting $R_0$ and $V_c(R_0)$
+    # -------------------------------------------------------------------------
+    # Adding in the force measurements from Pal 5
+    # also fitting $R_0$ and $V_c(R_0)$
 
     plt.figure(figsize=(16, 5))
-    p_b15_gd1_voro = su.fit(
+    p_b15_pal5_voro = su.fit(
         fitc=True,
         c=None,
-        addgd1=True,
+        addpal5=True,
         fitvoro=True,
         mc16=True,
-        plots="figures/gd1/fit.pdf",
+        plots="figures/pal5/fit.pdf",
     )
 
     # -----------------------
 
-    samples_savefilename = "mwpot14varyc-fitvoro-gd1-samples.pkl"
+    samples_savefilename = "output/mwpot14varyc-fitvoro-pal5-samples.pkl"
     if os.path.exists(samples_savefilename):
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
     else:
         s = su.sample(
             nsamples=100000,
-            params=p_b15_gd1_voro[0],
+            params=p_b15_pal5_voro[0],
             fitc=True,
             c=None,
-            plots="figures/gd1/mwpot14varyc-fitvoro-gd1-samples.pdf",
-            addgd1=True,
+            addpal5=True,
             fitvoro=True,
+            plots="figures/pal5/mwpot14varyc-fitvoro-pal5-fit.pdf",
         )
         save_pickles(samples_savefilename, s)
 
@@ -113,8 +114,8 @@ if __name__ == "__main__":
         s,
         True,
         True,
-        addgd1=True,
-        savefig="figures/mwpot14varyc-fitvoro-gd1-samples-corner.pdf",
+        addpal5=True,
+        savefig="figures/pal5/mwpot14varyc-fitvoro-pal5-samples-corner.pdf",
     )
 
     # -----------------------
@@ -129,7 +130,7 @@ if __name__ == "__main__":
         bf_params = []
         for c in tqdm(cs):
             dum = su.fit(
-                fitc=False, c=c, plots="figures/gd1/mwpot14varyc-bf-fit.pdf"
+                fitc=False, c=c, plots="figures/pal5/mwpot14varyc-bf-fit.pdf"
             )
             bf_params.append(dum[0])
         save_pickles(bf_savefilename, cs, bf_params)
@@ -148,7 +149,7 @@ if __name__ == "__main__":
         True,
         cs,
         bf_params,
-        savefig="figures/mwpot14varyc-fitvoro-gd1-samples-dependence.pdf",
+        savefig="figures/pal5/mwpot14varyc-bf-pal5-dependence.pdf",
     )
 
     # -----------------------
@@ -161,16 +162,17 @@ if __name__ == "__main__":
         histtype="step",
         lw=2.0,
         xlabel=r"$c/a$",
-        xrange=[0.5, 2.5],
+        xrange=[0.5, 1.5],
         normed=True,
     )
-    plt.savefig("figures/gd1/mwpot14varyc-fitvoro-gd1-shape_hist")
+    plt.savefig("figures/pal5/mwpot14varyc-bf-pal5-shape_hist.pdf")
 
     # -----------------------
 
-    with open("output/fit_potential_gd1.txt", "wb") as file:
+    sortedc = numpy.array(sorted(s[cindx]))
 
-        sortedc = numpy.array(sorted(s[cindx]))
+    with open("output/fit_potential_pal5.txt", "w") as file:
+
         file.write(
             "2.5%% and 0.5%% lower limits: %.2f, %.2f"
             % (
