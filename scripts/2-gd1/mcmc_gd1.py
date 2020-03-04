@@ -400,7 +400,7 @@ if __name__ == "__main__":
         new_params, new_lnp, new_rstate0 = sampler.run_mcmc(
             all_start_params,
             1,
-            lnprob0=start_lnprob0,
+            log_prob0=start_lnprob0,
             rstate0=rstate0,
             storechain=False,
         )
