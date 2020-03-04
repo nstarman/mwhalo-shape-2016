@@ -51,6 +51,7 @@ __maintainer__ = "Nathaniel Starkman"
 # IMPORTS
 
 # GENERAL
+
 import numpy
 from scipy import integrate
 from matplotlib import pyplot
@@ -58,6 +59,7 @@ from matplotlib import pyplot
 import astropy.units as u
 
 # CUSTOM
+
 from galpy import potential
 from galpy.util import bovy_plot, bovy_conversion, bovy_coords
 
@@ -92,7 +94,7 @@ def like_func(
     vo: float,
     addgas: bool,
 ):
-    """Likelihood Function
+    """Likelihood Function.
 
     Parameters
     ----------
@@ -114,6 +116,7 @@ def like_func(
 
     Returns
     -------
+    float
 
     """
     # --------------------------------------------------------------------
