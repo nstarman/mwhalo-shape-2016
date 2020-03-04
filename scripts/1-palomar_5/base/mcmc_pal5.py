@@ -54,7 +54,7 @@ import emcee
 
 # PROJECT-SPECIFIC
 # fmt: off
-import sys; sys.path.append('../../')
+import sys; sys.path.append('../../../')
 # fmt: on
 from src import pal5_util
 
@@ -82,6 +82,7 @@ def load_samples(options: OptionParser):
     samples: array
 
     """
+    print(options.samples_savefilename)
     if os.path.exists(options.samples_savefilename):
         with open(options.samples_savefilename, "rb") as savefile:
             samples = pickle.load(savefile)
@@ -344,7 +345,7 @@ def lnp(p: list, pot_params: list, options: OptionParser):
 def get_options():
     """Command-line Options."""
     usage = "usage: %prog [options]"
-    parser = OptionParser(usage=usage)
+    parser = OptionParser(usage=usage)  # TODO update to argparse
     # Potential parameters
     parser.add_option(
         "--bf_b15",
@@ -398,7 +399,8 @@ def get_options():
     parser.add_option(
         "--samples_savefilename",
         dest="samples_savefilename",
-        default="../data/mwpot14varyc-samples.pkl",
+        default=("../../0-create_MW_potential_2014/"
+                 "latest/output/mwpot14varyc-samples.pkl"),
         help="Name of the file that contains the potential samples",
     )
     # Output file

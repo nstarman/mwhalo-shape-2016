@@ -67,7 +67,7 @@ from src import pal5_util
 ###############################################################################
 # PARAMETERS
 
-_MW_POT_SCRIPT_FOLDER = '../0-create_MW_potential_2014/2019/'
+_MW_POT_SCRIPT_FOLDER = "../0-create_MW_potential_2014/2019/"
 
 save_figures = False
 
@@ -114,8 +114,8 @@ def plot_data_add_labels(
             plt.ylabel(r"$\mathrm{Dec}\,(\mathrm{degree})$")
         else:
             plt.gca().yaxis.set_major_formatter(nullfmt)
-        plt.xlim(250.,210.)
-        plt.ylim(-15.,9.)
+        plt.xlim(250.0, 210.0)
+        plt.ylim(-15.0, 9.0)
         bovy_plot._add_ticks()
         plt.errorbar(
             pos_radec[:, 0],
