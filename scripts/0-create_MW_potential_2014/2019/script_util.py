@@ -36,7 +36,7 @@ __maintainer__ = "Nathaniel Starkman"
 import os
 import os.path
 import pickle
-import numpy
+import numpy as np
 import shutil
 import functools
 from tqdm import tqdm
@@ -65,12 +65,18 @@ import bovy_mcmc  # TODO not need
 import sys; sys.path.insert(0, "../../../")
 # fmt: on
 from src import MWPotential2014Likelihood
+from src.data import (
+    readBovyRix13kzdata,
+    readClemens,
+    readMcClureGriffiths07,
+    readMcClureGriffiths16,
+)
 
 
 ###############################################################################
 # PARAMETERS
 
-numpy.random.seed(1)  # set random number seed. TODO use numpy1.8 generator
+np.random.seed(1)  # set random number seed. TODO use numpy1.8 generator
 
 _REFR0, _REFV0 = (
     MWPotential2014Likelihood._REFR0,
@@ -81,28 +87,15 @@ _REFR0, _REFV0 = (
 
 # Read the necessary data
 # First read the surface densities
-surffile = "../../../data/mwpot14data/bovyrix13kzdata.csv"
-
-if surffile is not None and os.path.exists(surffile):
-    surf = numpy.loadtxt(surffile, delimiter=",")
-    surfrs = surf[:, 2]
-    kzs = surf[:, 6]
-    kzerrs = surf[:, 7]
+surfrs, kzs, kzerrs = readBovyRix13kzdata()
 
 # Then the terminal velocities
-cl_glon, cl_vterm, cl_corr = MWPotential2014Likelihood.readClemens(
-    dsinl=0.125, fpath="../../../data/mwpot14data/clemens1985_table2.dat"
+cl_glon, cl_vterm, cl_corr = readClemens(dsinl=0.125)
+mc_glon, mc_vterm, mc_corr = readMcClureGriffiths07(dsinl=0.125, bin=True)
+mc16_glon, mc16_vterm, mc16_corr = readMcClureGriffiths16(
+    dsinl=0.125, bin=True
 )
-(mc_glon, mc_vterm, mc_corr,) = MWPotential2014Likelihood.readMcClureGriffiths(
-    dsinl=0.125, fpath="../../../data/mwpot14data/McClureGriffiths2007.dat"
-)
-(
-    mc16_glon,
-    mc16_vterm,
-    mc16_corr,
-) = MWPotential2014Likelihood.readMcClureGriffiths16(
-    dsinl=0.125, fpath="../../../data/mwpot14data/McClureGriffiths2016.dat"
-)
+
 termdata = (cl_glon, cl_vterm, cl_corr, mc_glon, mc_vterm, mc_corr)
 termdata_mc16 = (
     mc16_glon,
@@ -229,9 +222,9 @@ def fit(
     init_params = [
         0.5,
         0.45,
-        numpy.log(2.5 / 8.0),
-        numpy.log(0.4 / 8.0),
-        numpy.log(20.0 / 8.0),
+        np.log(2.5 / 8.0),
+        np.log(0.4 / 8.0),
+        np.log(20.0 / 8.0),
         0.0,
         0.0,
     ]
@@ -431,7 +424,7 @@ def sample(
         nwalkers=2 * len(params),
         _use_emcee=_use_emcee,
     )
-    samples = numpy.array(samples).T
+    samples = np.array(samples).T
 
     if plots:
         plot_samples(samples, fitc, fitvoro, ro=ro, vo=vo)
@@ -534,13 +527,13 @@ def sample_multi(
 
     nwalkers = 2 * len(params)
     nn = 0
-    all_start_params = numpy.zeros((nwalkers, len(params)))
-    start_lnprob0 = numpy.zeros(nwalkers)
-    step = 0.05 * numpy.ones(len(params))
+    all_start_params = np.zeros((nwalkers, len(params)))
+    start_lnprob0 = np.zeros(nwalkers)
+    step = 0.05 * np.ones(len(params))
 
     while nn < nwalkers:
         all_start_params[nn] = (
-            params + numpy.random.normal(size=len(params)) * step
+            params + np.random.normal(size=len(params)) * step
         )
         start_lnprob0[nn] = MWPotential2014Likelihood.pdf_func(
             all_start_params[nn], *funcargs
@@ -556,8 +549,8 @@ def sample_multi(
         threads=len(params),
     )
 
-    rstate0 = numpy.random.mtrand.RandomState().get_state()
-    out = numpy.zeros((len(params), nsamples))
+    rstate0 = np.random.mtrand.RandomState().get_state()
+    out = np.zeros((len(params), nsamples))
 
     for ii in tqdm(range(nsamples // (10 * nwalkers))):  # burn-in
         new_params, new_lnp, new_rstate0 = sampler.run_mcmc(
@@ -648,12 +641,12 @@ def plot_samples(
             ranges.append((0.5, 1.5))
         else:
             ranges.append((0.0, 4.0))
-    subset = numpy.ones(len(samples), dtype="bool")
+    subset = np.ones(len(samples), dtype="bool")
     subset[5:7] = False
     plotsamples = samples[subset]
-    plotsamples[2] = numpy.exp(samples[2]) * ro
-    plotsamples[3] = numpy.exp(samples[3]) * 1000.0 * ro
-    plotsamples[4] = numpy.exp(samples[4]) * ro
+    plotsamples[2] = np.exp(samples[2]) * ro
+    plotsamples[3] = np.exp(samples[3]) * 1000.0 * ro
+    plotsamples[4] = np.exp(samples[4]) * ro
     if fitvoro:
         plotsamples[5] = samples[7] * ro
         plotsamples[6] = samples[8] * vo
@@ -696,19 +689,19 @@ def plot_mcmc_c(
 
     """
     if add_families:
-        st0 = numpy.random.get_state()
-        numpy.random.seed(1)
+        st0 = np.random.get_state()
+        np.random.seed(1)
         with open("output/mwpot14varyc-samples.pkl", "rb") as savefile:
             pot_samples = pickle.load(savefile)
-        rndindices = numpy.random.permutation(pot_samples.shape[1])
-        pot_params = numpy.zeros((8, 32))
+        rndindices = np.random.permutation(pot_samples.shape[1])
+        pot_params = np.zeros((8, 32))
         for ii in range(32):
             pot_params[:, ii] = pot_samples[:, rndindices[ii]]
 
     cindx = 9 if fitvoro else 7
 
     cmap = cm.viridis
-    levels = list(special.erf(numpy.arange(1, 3) / numpy.sqrt(2.0)))
+    levels = list(special.erf(np.arange(1, 3) / np.sqrt(2.0)))
     levels.append(1.01)
 
     def axes_white():
@@ -777,7 +770,7 @@ def plot_mcmc_c(
     axes_white()
     plt.subplot(gs[2])
     bovy_plot.scatterplot(
-        numpy.exp(samples[2]) * _REFR0,
+        np.exp(samples[2]) * _REFR0,
         samples[cindx],
         ",",
         gcf=True,
@@ -790,14 +783,11 @@ def plot_mcmc_c(
         xlabel=r"$h_R\,(\mathrm{kpc})$",
     )
     bovy_plot.bovy_plot(
-        [numpy.exp(bp[2]) * _REFR0 for bp in bf_params],
-        cs,
-        "w-",
-        overplot=True,
+        [np.exp(bp[2]) * _REFR0 for bp in bf_params], cs, "w-", overplot=True,
     )
     if add_families:
         bovy_plot.bovy_plot(
-            numpy.exp(pot_params[2]) * _REFR0,
+            np.exp(pot_params[2]) * _REFR0,
             pot_params[7],
             overplot=True,
             **fm_kw,
@@ -807,7 +797,7 @@ def plot_mcmc_c(
     axes_white()
     plt.subplot(gs[3])
     bovy_plot.scatterplot(
-        numpy.exp(samples[3]) * _REFR0 * 1000.0,
+        np.exp(samples[3]) * _REFR0 * 1000.0,
         samples[cindx],
         ",",
         gcf=True,
@@ -820,14 +810,14 @@ def plot_mcmc_c(
         xlabel=r"$h_z\,(\mathrm{pc})$",
     )
     bovy_plot.bovy_plot(
-        [numpy.exp(bp[3]) * _REFR0 * 1000.0 for bp in bf_params],
+        [np.exp(bp[3]) * _REFR0 * 1000.0 for bp in bf_params],
         cs,
         "w-",
         overplot=True,
     )
     if add_families:
         bovy_plot.bovy_plot(
-            numpy.exp(pot_params[3]) * _REFR0 * 1000.0,
+            np.exp(pot_params[3]) * _REFR0 * 1000.0,
             pot_params[7],
             overplot=True,
             **fm_kw,
@@ -838,7 +828,7 @@ def plot_mcmc_c(
     axes_white()
     plt.subplot(gs[4])
     bovy_plot.scatterplot(
-        numpy.exp(samples[4]) * _REFR0,
+        np.exp(samples[4]) * _REFR0,
         samples[cindx],
         ",",
         gcf=True,
@@ -851,14 +841,11 @@ def plot_mcmc_c(
         xlabel=r"$r_s\,(\mathrm{kpc})$",
     )
     bovy_plot.bovy_plot(
-        [numpy.exp(bp[4]) * _REFR0 for bp in bf_params],
-        cs,
-        "w-",
-        overplot=True,
+        [np.exp(bp[4]) * _REFR0 for bp in bf_params], cs, "w-", overplot=True,
     )
     if add_families:
         bovy_plot.bovy_plot(
-            numpy.exp(pot_params[4]) * _REFR0,
+            np.exp(pot_params[4]) * _REFR0,
             pot_params[7],
             overplot=True,
             **fm_kw,

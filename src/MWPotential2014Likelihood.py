@@ -52,16 +52,23 @@ __maintainer__ = "Nathaniel Starkman"
 
 # GENERAL
 
-import numpy
+import numpy as np
 from scipy import integrate
 from matplotlib import pyplot
 
 import astropy.units as u
 
-# CUSTOM
-
 from galpy import potential
 from galpy.util import bovy_plot, bovy_conversion, bovy_coords
+
+
+# PROJECT-SPECIFIC
+from .data import (  # import here for backward compatibility
+    readBovyRix13kzdata,
+    readClemens,
+    readMcClureGriffiths07,
+    readMcClureGriffiths16,
+)
 
 
 ###############################################################################
@@ -123,31 +130,27 @@ def like_func(
     # Check ranges
 
     if params[0] < 0.0 or params[0] > 1.0:
-        return numpy.finfo(numpy.dtype(numpy.float64)).max
+        return np.finfo(np.dtype(np.float64)).max
     elif params[1] < 0.0 or params[1] > 1.0:
-        return numpy.finfo(numpy.dtype(numpy.float64)).max
+        return np.finfo(np.dtype(np.float64)).max
     elif (1.0 - params[0] - params[1]) < 0.0 or (
         1.0 - params[0] - params[1]
     ) > 1.0:
-        return numpy.finfo(numpy.dtype(numpy.float64)).max
-    elif params[2] < numpy.log(1.0 / _REFR0) or params[2] > numpy.log(
-        8.0 / _REFR0
-    ):
-        return numpy.finfo(numpy.dtype(numpy.float64)).max
-    elif params[3] < numpy.log(0.05 / _REFR0) or params[3] > numpy.log(
-        1.0 / _REFR0
-    ):
-        return numpy.finfo(numpy.dtype(numpy.float64)).max
+        return np.finfo(np.dtype(np.float64)).max
+    elif params[2] < np.log(1.0 / _REFR0) or params[2] > np.log(8.0 / _REFR0):
+        return np.finfo(np.dtype(np.float64)).max
+    elif params[3] < np.log(0.05 / _REFR0) or params[3] > np.log(1.0 / _REFR0):
+        return np.finfo(np.dtype(np.float64)).max
     elif fitvoro and (
         params[7] <= 150.0 / _REFV0 or params[7] > 290.0 / _REFV0
     ):
-        return numpy.finfo(numpy.dtype(numpy.float64)).max
+        return np.finfo(np.dtype(np.float64)).max
     elif fitvoro and (params[8] <= 7.0 / _REFR0 or params[8] > 9.4 / _REFR0):
-        return numpy.finfo(numpy.dtype(numpy.float64)).max
+        return np.finfo(np.dtype(np.float64)).max
     elif fitc and (
         params[7 + 2 * fitvoro] <= 0.0 or params[7 + 2 * fitvoro] > 4.0
     ):
-        return numpy.finfo(numpy.dtype(numpy.float64)).max
+        return np.finfo(np.dtype(np.float64)).max
 
     # --------------------------------------------------------------------
 
@@ -160,12 +163,12 @@ def like_func(
     )
 
     # Calculate model surface density at surfrs
-    modelkzs = numpy.empty_like(surfrs)
+    modelkzs = np.empty_like(surfrs)
     for ii in range(len(surfrs)):
         modelkzs[ii] = -potential.evaluatezforces(
             pot, (ro - 8.0 + surfrs[ii]) / ro, 1.1 / ro, phi=0.0
         ) * bovy_conversion.force_in_2piGmsolpc2(vo, ro)
-    out = 0.5 * numpy.sum((kzs - modelkzs) ** 2.0 / kzerrs ** 2.0)
+    out = 0.5 * np.sum((kzs - modelkzs) ** 2.0 / kzerrs ** 2.0)
 
     # Add terminal velocities
     vrsun = params[5]
@@ -173,22 +176,22 @@ def like_func(
     cl_glon, cl_vterm, cl_corr, mc_glon, mc_vterm, mc_corr = termdata
 
     # Calculate terminal velocities at data glon
-    cl_vterm_model = numpy.zeros_like(cl_vterm)
+    cl_vterm_model = np.zeros_like(cl_vterm)
     for ii in range(len(cl_glon)):
         cl_vterm_model[ii] = potential.vterm(pot, cl_glon[ii])
-    cl_vterm_model += vrsun * numpy.cos(
-        cl_glon / 180.0 * numpy.pi
-    ) - vtsun * numpy.sin(cl_glon / 180.0 * numpy.pi)
-    mc_vterm_model = numpy.zeros_like(mc_vterm)
+    cl_vterm_model += vrsun * np.cos(cl_glon / 180.0 * np.pi) - vtsun * np.sin(
+        cl_glon / 180.0 * np.pi
+    )
+    mc_vterm_model = np.zeros_like(mc_vterm)
     for ii in range(len(mc_glon)):
         mc_vterm_model[ii] = potential.vterm(pot, mc_glon[ii])
-    mc_vterm_model += vrsun * numpy.cos(
-        mc_glon / 180.0 * numpy.pi
-    ) - vtsun * numpy.sin(mc_glon / 180.0 * numpy.pi)
+    mc_vterm_model += vrsun * np.cos(mc_glon / 180.0 * np.pi) - vtsun * np.sin(
+        mc_glon / 180.0 * np.pi
+    )
     cl_dvterm = (cl_vterm - cl_vterm_model * vo) / termsigma
     mc_dvterm = (mc_vterm - mc_vterm_model * vo) / termsigma
-    out += 0.5 * numpy.sum(cl_dvterm * numpy.dot(cl_corr, cl_dvterm))
-    out += 0.5 * numpy.sum(mc_dvterm * numpy.dot(mc_corr, mc_dvterm))
+    out += 0.5 * np.sum(cl_dvterm * np.dot(cl_corr, cl_dvterm))
+    out += 0.5 * np.sum(mc_dvterm * np.dot(mc_corr, mc_dvterm))
 
     # Rotation curve constraint
     out -= logprior_dlnvcdlnr(potential.dvcircdR(pot, 1.0, phi=0.0))
@@ -221,9 +224,7 @@ def like_func(
         # q = 0.94 +/- 0.05 + add'l
         fp5 = force_pal5(pot, 23.46, ro, vo)
         out += (
-            0.5
-            * (numpy.sqrt(2.0 * fp5[0] / fp5[1]) - 0.94) ** 2.0
-            / 0.05 ** 2.0
+            0.5 * (np.sqrt(2.0 * fp5[0] / fp5[1]) - 0.94) ** 2.0 / 0.05 ** 2.0
         )
         out += (
             0.5
@@ -238,7 +239,7 @@ def like_func(
         fg1 = force_gd1(pot, ro, vo)
         out += (
             0.5
-            * (numpy.sqrt(6.675 / 12.5 * fg1[0] / fg1[1]) - 0.95) ** 2.0
+            * (np.sqrt(6.675 / 12.5 * fg1[0] / fg1[1]) - 0.95) ** 2.0
             / 0.04 ** 2.0
         )
         out += (
@@ -255,8 +256,8 @@ def like_func(
     # vc and ro measurements: vc=218 +/- 10 km/s, ro= 8.1 +/- 0.1 kpc
     out += (vo - 218.0) ** 2.0 / 200.0 + (ro - 8.1) ** 2.0 / 0.02
 
-    if numpy.isnan(out):
-        return numpy.finfo(numpy.dtype(numpy.float64)).max
+    if np.isnan(out):
+        return np.finfo(np.dtype(np.float64)).max
     else:
         return out
 
@@ -268,7 +269,7 @@ def like_func(
 
 
 def pdf_func(params, *args):
-    """PDF function
+    """PDF function.
 
     the negative likelihood
 
@@ -315,7 +316,7 @@ def setup_potential(
     pa: float = 0.0,
     addgas: bool = False,
 ):
-    """Set up potential
+    """Set up potential.
 
     Parameters
     ----------
@@ -349,9 +350,9 @@ def setup_potential(
                 amp=0.03333
                 * u.Msun
                 / u.pc ** 3
-                * numpy.exp(ro / 2.0 / numpy.exp(params[2]) / _REFR0),
+                * np.exp(ro / 2.0 / np.exp(params[2]) / _REFR0),
                 hz=150.0 * u.pc,
-                hr=2.0 * numpy.exp(params[2]) * _REFR0 / ro,
+                hr=2.0 * np.exp(params[2]) * _REFR0 / ro,
                 ro=ro,
                 vo=vo,
             )
@@ -363,24 +364,24 @@ def setup_potential(
             pot.append(
                 potential.DoubleExponentialDiskPotential(
                     normalize=dpf,
-                    hr=numpy.exp(params[2]) * _REFR0 / ro,
-                    hz=numpy.exp(params[3]) * _REFR0 / ro,
+                    hr=np.exp(params[2]) * _REFR0 / ro,
+                    hz=np.exp(params[3]) * _REFR0 / ro,
                 )
             )
         else:
             pot.append(
                 potential.DoubleExponentialDiskPotential(
                     normalize=params[0],
-                    hr=numpy.exp(params[2]) * _REFR0 / ro,
-                    hz=numpy.exp(params[3]) * _REFR0 / ro,
+                    hr=np.exp(params[2]) * _REFR0 / ro,
+                    hz=np.exp(params[3]) * _REFR0 / ro,
                 )
             )
     else:
         pot.append(
             potential.MiyamotoNagaiPotential(
                 normalize=params[0],
-                a=numpy.exp(params[2]) * _REFR0 / ro,
-                b=numpy.exp(params[3]) * _REFR0 / ro,
+                a=np.exp(params[2]) * _REFR0 / ro,
+                b=np.exp(params[3]) * _REFR0 / ro,
             )
         )
 
@@ -388,7 +389,7 @@ def setup_potential(
         pot.append(
             potential.TriaxialNFWPotential(
                 normalize=params[1],
-                a=numpy.exp(params[4]) * _REFR0 / ro,
+                a=np.exp(params[4]) * _REFR0 / ro,
                 c=params[7 + 2 * fitvoro],
                 b=b,
                 pa=pa,
@@ -398,7 +399,7 @@ def setup_potential(
         pot.append(
             potential.TriaxialNFWPotential(
                 normalize=params[1],
-                a=numpy.exp(params[4]) * _REFR0 / ro,
+                a=np.exp(params[4]) * _REFR0 / ro,
                 c=c,
                 b=b,
                 pa=pa,
@@ -455,7 +456,7 @@ def force_pal5(pot, dpal5, ro, vo):
 
 
 def force_gd1(pot, ro, vo):
-    """Return the force at GD-1
+    """Return the force at GD-1.
 
     Parameters
     ----------
@@ -492,20 +493,27 @@ def force_gd1(pot, ro, vo):
 # --------------------------------------------------------------------------
 
 
-def mass60(pot, _REFR0, _REFV0):
-    """The mass at 60 kpc in 10^11 msolar."""
-    tR = 60.0 / _REFR0
+def mass60(pot, ro=_REFR0, vo=_REFV0):
+    """The mass at 60 kpc in 10^11 msolar.
+
+    Other Parameters
+    ----------------
+    ro: float
+    vo: float
+
+    """
+    tR = 60.0 / ro
     # Average r^2 FR/G
     return (
         -integrate.quad(
             lambda x: tR ** 2.0
             * potential.evaluaterforces(
-                pot, tR * x, tR * numpy.sqrt(1.0 - x ** 2.0), phi=0.0
+                pot, tR * x, tR * np.sqrt(1.0 - x ** 2.0), phi=0.0
             ),
             0.0,
             1.0,
         )[0]
-        * bovy_conversion.mass_in_1010msol(_REFV0, _REFR0)
+        * bovy_conversion.mass_in_1010msol(vo, ro)
         / 10.0
     )
 
@@ -513,29 +521,48 @@ def mass60(pot, _REFR0, _REFV0):
 # /def
 
 
-def bulge_dispersion(pot, _REFR0, _REFV0):
-    """The expected dispersion in Baade's window, in km/s."""
+def bulge_dispersion(pot, ro=_REFR0, vo=_REFV0):
+    """The expected dispersion in Baade's window, in km/s.
+
+    Other Parameters
+    ----------------
+    ro: float
+    vo: float
+
+    """
     bar, baz = 0.0175, 0.068
     return (
-        numpy.sqrt(
+        np.sqrt(
             1.0
             / pot[0].dens(bar, baz)
             * integrate.quad(
                 lambda x: -potential.evaluatezforces(pot, bar, x, phi=0.0)
                 * pot[0].dens(bar, x),
                 baz,
-                numpy.inf,
+                np.inf,
             )[0]
         )
-        * _REFV0
+        * ro
     )
 
 
 # /def
 
 
-def visible_dens(pot, _REFR0, _REFV0, r=1.0):
-    """The visible surface density at 8 kpc from the center."""
+def visible_dens(pot, ro=_REFR0, vo=_REFV0, r=1.0):
+    """The visible surface density at 8 kpc from the center.
+
+    Parameters
+    ----------
+    pot: Potential
+    ro : float
+        default _REFR0
+    vo : float
+        default _REFV0
+    r: float
+        default 1.0
+
+    """
     if len(pot) == 4:
         return (
             2.0
@@ -559,7 +586,7 @@ def visible_dens(pot, _REFR0, _REFV0, r=1.0):
                     2.0,
                 )[0]
             )
-            * bovy_conversion.surfdens_in_msolpc2(_REFV0, _REFR0)
+            * bovy_conversion.surfdens_in_msolpc2(vo, ro)
         )
     else:
         return (
@@ -573,18 +600,25 @@ def visible_dens(pot, _REFR0, _REFV0, r=1.0):
                 0.0,
                 2.0,
             )[0]
-            * bovy_conversion.surfdens_in_msolpc2(_REFV0, _REFR0)
+            * bovy_conversion.surfdens_in_msolpc2(vo, ro)
         )
 
 
 # /def
 
 
-def logprior_dlnvcdlnr(dlnvcdlnr):
+def logprior_dlnvcdlnr(dlnvcdlnr: float):
+    """Log Prior dlnvcdlnr.
+
+    Parameters
+    ----------
+    dlnvcdlnr : float
+
+    """
     sb = 0.04
     if dlnvcdlnr > sb or dlnvcdlnr < -0.5:
-        return -numpy.finfo(numpy.dtype(numpy.float64)).max
-    return numpy.log((sb - dlnvcdlnr) / sb) - (sb - dlnvcdlnr) / sb
+        return -np.finfo(np.dtype(np.float64)).max
+    return np.log((sb - dlnvcdlnr) / sb) - (sb - dlnvcdlnr) / sb
 
 
 # /def
@@ -595,6 +629,13 @@ def logprior_dlnvcdlnr(dlnvcdlnr):
 
 
 def plotRotcurve(pot):
+    """Plot Terminal Velocity.
+
+    Parameters
+    ----------
+    pot: potential
+
+    """
     potential.plotRotcurve(
         pot, xrange=[0.0, 4.0], color="k", lw=2.0, yrange=[0.0, 1.4], gcf=True
     )
@@ -617,23 +658,39 @@ def plotRotcurve(pot):
         prop={"size": 16},
         frameon=False,
     )
+
     return None
 
 
 # /def
 
 
-def plotKz(pot, surfrs, kzs, kzerrs, _REFR0, _REFV0):
-    krs = numpy.linspace(4.0 / _REFR0, 10.0 / _REFR0, 1001)
-    modelkz = numpy.array(
+def plotKz(pot, surfrs, kzs, kzerrs, ro=_REFR0, vo=_REFV0):
+    """Plot Terminal Velocity.
+
+    Parameters
+    ----------
+    pot: potential
+    surfrs: array-like
+    kzs: array-like
+    kzerrs: array-like
+
+    Other Parameters
+    ----------------
+    ro: float
+    vo: float
+
+    """
+    krs = np.linspace(4.0 / ro, 10.0 / ro, 1001)
+    modelkz = np.array(
         [
-            -potential.evaluatezforces(pot, kr, 1.1 / _REFR0)
-            * bovy_conversion.force_in_2piGmsolpc2(_REFV0, _REFR0)
+            -potential.evaluatezforces(pot, kr, 1.1 / ro)
+            * bovy_conversion.force_in_2piGmsolpc2(vo, ro)
             for kr in krs
         ]
     )
     bovy_plot.bovy_plot(
-        krs * _REFR0,
+        krs * ro,
         modelkz,
         "-",
         color="0.6",
@@ -647,7 +704,7 @@ def plotKz(pot, surfrs, kzs, kzerrs, _REFR0, _REFV0):
         gcf=True,
     )
     pyplot.errorbar(
-        _REFR0 - 8.0 + surfrs,
+        ro - 8.0 + surfrs,
         kzs,
         yerr=kzerrs,
         marker="o",
@@ -658,7 +715,7 @@ def plotKz(pot, surfrs, kzs, kzerrs, _REFR0, _REFV0):
         linestyle="none",
     )
     pyplot.errorbar(
-        [_REFR0],
+        [ro],
         [69.0],
         yerr=[6.0],
         marker="d",
@@ -670,23 +727,33 @@ def plotKz(pot, surfrs, kzs, kzerrs, _REFR0, _REFV0):
         linestyle="none",
     )
     # Do an exponential fit to the model Kz and return the scale length
-    indx = krs < 9.0 / _REFR0
-    p = numpy.polyfit(krs[indx], numpy.log(modelkz[indx]), 1)
+    indx = krs < 9.0 / ro
+    p = np.polyfit(krs[indx], np.log(modelkz[indx]), 1)
     return -1.0 / p[0]
 
 
 # /def
 
 
-def plotTerm(pot, termdata, _REFR0, _REFV0):
-    mglons = numpy.linspace(-90.0, -20.0, 1001)
-    pglons = numpy.linspace(20.0, 90.0, 1001)
-    mterms = numpy.array(
-        [potential.vterm(pot, mgl) * _REFV0 for mgl in mglons]
-    )
-    pterms = numpy.array(
-        [potential.vterm(pot, pgl) * _REFV0 for pgl in pglons]
-    )
+def plotTerm(pot, termdata, ro=_REFR0, vo=_REFV0):
+    """Plot Terminal Velocity.
+
+    Parameters
+    ----------
+    pot: potential
+    termdata: tuple
+        cl_glon, cl_vterm, cl_corr, mc_glon, mc_vterm, mc_corr
+
+    Other Parameters
+    ----------------
+    ro: float
+    vo: float
+
+    """
+    mglons = np.linspace(-90.0, -20.0, 1001)
+    pglons = np.linspace(20.0, 90.0, 1001)
+    mterms = np.array([potential.vterm(pot, mgl) * vo for mgl in mglons])
+    pterms = np.array([potential.vterm(pot, pgl) * vo for pgl in pglons])
     bovy_plot.bovy_plot(
         mglons,
         mterms,
@@ -706,6 +773,7 @@ def plotTerm(pot, termdata, _REFR0, _REFV0):
     cl_glon, cl_vterm, cl_corr, mc_glon, mc_vterm, mc_corr = termdata
     bovy_plot.bovy_plot(cl_glon, cl_vterm, "ko", overplot=True)
     bovy_plot.bovy_plot(mc_glon - 360.0, mc_vterm, "ko", overplot=True)
+
     return None
 
 
@@ -713,6 +781,13 @@ def plotTerm(pot, termdata, _REFR0, _REFV0):
 
 
 def plotPot(pot):
+    """Plot Potentials.
+
+    Parameters
+    ----------
+    pot: potential
+
+    """
     potential.plotPotentials(
         pot,
         rmin=0.0,
@@ -732,6 +807,13 @@ def plotPot(pot):
 
 
 def plotDens(pot):
+    """Plot Density.
+
+    Parameters
+    ----------
+    pot: potential
+
+    """
     potential.plotDensities(
         pot,
         rmin=0.01,
@@ -751,112 +833,115 @@ def plotDens(pot):
 # /def
 
 
-def readClemens(
-    dsinl=0.5 / 8.0, fpath="data/mwpot14data/clemens1985_table2.dat"
-):
-    data = numpy.loadtxt(fpath, delimiter="|", comments="#",)
-    glon = data[:, 0]
-    vterm = data[:, 1]
-    # Remove l < 40 and l > 80
-    indx = (glon > 40.0) * (glon < 80.0)
-    glon = glon[indx]
-    vterm = vterm[indx]
-    if bin:
-        # Bin in l=1 bins
-        glon, vterm = binlbins(glon, vterm, dl=1.0)
-        # Remove nan, because 1 bin is empty
-        indx = ~numpy.isnan(glon)
-        glon = glon[indx]
-        vterm = vterm[indx]
-    # Calculate correlation matrix
-    singlon = numpy.sin(glon / 180.0 * numpy.pi)
-    corr = calc_corr(singlon, dsinl)
-    return (glon, vterm, numpy.linalg.inv(corr))
+# -------------------------------------------------------------------------
 
 
-# /def
+# def readClemens(
+#     dsinl=0.5 / 8.0, fpath="data/mwpot14data/clemens1985_table2.dat"
+# ):
+#     data = np.loadtxt(fpath, delimiter="|", comments="#",)
+#     glon = data[:, 0]
+#     vterm = data[:, 1]
+#     # Remove l < 40 and l > 80
+#     indx = (glon > 40.0) * (glon < 80.0)
+#     glon = glon[indx]
+#     vterm = vterm[indx]
+#     if bin:
+#         # Bin in l=1 bins
+#         glon, vterm = binlbins(glon, vterm, dl=1.0)
+#         # Remove nan, because 1 bin is empty
+#         indx = ~np.isnan(glon)
+#         glon = glon[indx]
+#         vterm = vterm[indx]
+#     # Calculate correlation matrix
+#     singlon = np.sin(glon / 180.0 * np.pi)
+#     corr = calc_corr(singlon, dsinl)
+#     return (glon, vterm, np.linalg.inv(corr))
 
 
-def readMcClureGriffiths(
-    dsinl=0.5 / 8.0,
-    bin=True,
-    fpath="data/mwpot14data/McClureGriffiths2007.dat",
-):
-    data = numpy.loadtxt(fpath, comments="#")
-    glon = data[:, 0]
-    vterm = data[:, 1]
-    # Remove l > 320 and l > 80
-    indx = (glon < 320.0) * (glon > 280.0)
-    glon = glon[indx]
-    vterm = vterm[indx]
-    if bin:
-        # Bin in l=1 bins
-        glon, vterm = binlbins(glon, vterm, dl=1.0)
-    # Calculate correlation matrix
-    singlon = numpy.sin(glon / 180.0 * numpy.pi)
-    corr = calc_corr(singlon, dsinl)
-    return (glon, vterm, numpy.linalg.inv(corr))
+# # /def
 
 
-# /def
+# def readMcClureGriffiths(
+#     dsinl=0.5 / 8.0,
+#     bin=True,
+#     fpath="data/mwpot14data/McClureGriffiths2007.dat",
+# ):
+#     data = np.loadtxt(fpath, comments="#")
+#     glon = data[:, 0]
+#     vterm = data[:, 1]
+#     # Remove l > 320 and l > 80
+#     indx = (glon < 320.0) * (glon > 280.0)
+#     glon = glon[indx]
+#     vterm = vterm[indx]
+#     if bin:
+#         # Bin in l=1 bins
+#         glon, vterm = binlbins(glon, vterm, dl=1.0)
+#     # Calculate correlation matrix
+#     singlon = np.sin(glon / 180.0 * np.pi)
+#     corr = calc_corr(singlon, dsinl)
+#     return (glon, vterm, np.linalg.inv(corr))
 
 
-def readMcClureGriffiths16(
-    dsinl=0.5 / 8.0,
-    bin=True,
-    fpath="data/mwpot14data/McClureGriffiths2016.dat",
-):
-    data = numpy.loadtxt(fpath, comments="#", delimiter="&",)
-    glon = data[:, 0]
-    vterm = data[:, 1]
-    # Remove l < 30 and l > 80
-    indx = (glon > 40.0) * (glon < 80.0)
-    glon = glon[indx]
-    vterm = vterm[indx]
-    if bin:
-        # Bin in l=1 bins
-        glon, vterm = binlbins(glon, vterm, dl=1.0)
-    # Calculate correlation matrix
-    singlon = numpy.sin(glon / 180.0 * numpy.pi)
-    corr = calc_corr(singlon, dsinl)
-    return (glon, vterm, numpy.linalg.inv(corr))
+# # /def
 
 
-# /def
+# def readMcClureGriffiths16(
+#     dsinl=0.5 / 8.0,
+#     bin=True,
+#     fpath="data/mwpot14data/McClureGriffiths2016.dat",
+# ):
+#     data = np.loadtxt(fpath, comments="#", delimiter="&",)
+#     glon = data[:, 0]
+#     vterm = data[:, 1]
+#     # Remove l < 30 and l > 80
+#     indx = (glon > 40.0) * (glon < 80.0)
+#     glon = glon[indx]
+#     vterm = vterm[indx]
+#     if bin:
+#         # Bin in l=1 bins
+#         glon, vterm = binlbins(glon, vterm, dl=1.0)
+#     # Calculate correlation matrix
+#     singlon = np.sin(glon / 180.0 * np.pi)
+#     corr = calc_corr(singlon, dsinl)
+#     return (glon, vterm, np.linalg.inv(corr))
 
 
-def calc_corr(singlon, dsinl):
-    # Calculate correlation matrix
-    corr = numpy.zeros((len(singlon), len(singlon)))
-    for ii in range(len(singlon)):
-        for jj in range(len(singlon)):
-            corr[ii, jj] = numpy.exp(
-                -numpy.fabs(singlon[ii] - singlon[jj]) / dsinl
-            )
-    corr = 0.5 * (corr + corr.T)
-    return corr + 10.0 ** -10.0 * numpy.eye(len(singlon))  # for stability
+# # /def
+
+# # -------------------------------------------------------------------------
 
 
-# /def
+# def calc_corr(singlon, dsinl):
+#     # Calculate correlation matrix
+#     corr = np.zeros((len(singlon), len(singlon)))
+#     for ii in range(len(singlon)):
+#         for jj in range(len(singlon)):
+#             corr[ii, jj] = np.exp(-np.fabs(singlon[ii] - singlon[jj]) / dsinl)
+#     corr = 0.5 * (corr + corr.T)
+#     return corr + 10.0 ** -10.0 * np.eye(len(singlon))  # for stability
 
 
-def binlbins(glon, vterm, dl=1.0):
-    minglon, maxglon = (
-        numpy.floor(numpy.amin(glon)),
-        numpy.floor(numpy.amax(glon)),
-    )
-    minglon, maxglon = int(minglon), int(maxglon)
-    nout = maxglon - minglon + 1
-    glon_out = numpy.zeros(nout)
-    vterm_out = numpy.zeros(nout)
-    for ii in range(nout):
-        indx = (glon > minglon + ii) * (glon < minglon + ii + 1)
-        glon_out[ii] = numpy.mean(glon[indx])
-        vterm_out[ii] = numpy.mean(vterm[indx])
-    return (glon_out, vterm_out)
+# # /def
 
 
-# /def
+# def binlbins(glon, vterm, dl=1.0):
+#     minglon, maxglon = (
+#         np.floor(np.amin(glon)),
+#         np.floor(np.amax(glon)),
+#     )
+#     minglon, maxglon = int(minglon), int(maxglon)
+#     nout = maxglon - minglon + 1
+#     glon_out = np.zeros(nout)
+#     vterm_out = np.zeros(nout)
+#     for ii in range(nout):
+#         indx = (glon > minglon + ii) * (glon < minglon + ii + 1)
+#         glon_out[ii] = np.mean(glon[indx])
+#         vterm_out[ii] = np.mean(vterm[indx])
+#     return (glon_out, vterm_out)
+
+
+# # /def
 
 
 ##############################################################################
