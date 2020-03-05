@@ -50,7 +50,7 @@ __all__ = ["create_frames", "create_movie"]
 import sys
 import subprocess
 import numpy
-import tqdm
+from tqdm import tqdm
 
 import astropy.units as u
 
@@ -131,7 +131,7 @@ def create_frames(basefilename):
     gs = gridspec.GridSpec(1, 3, wspace=0.325, bottom=0.2, left=0.075)
 
     # For each time step, plot: orbit, Jr, <Jr>
-    for ii in tqdm.tqdm(range(len(otimes))):
+    for ii in tqdm(range(len(otimes))):
         bovy_plot.bovy_print(
             fig_width=11.2,
             fig_height=4.0,

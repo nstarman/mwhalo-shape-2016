@@ -65,7 +65,7 @@ import copy
 import signal
 import pickle
 import numpy as np
-import tqdm
+from tqdm import tqdm
 from scipy import interpolate
 
 from typing import Optional, Union
@@ -957,7 +957,7 @@ def pal5_dpmguess(
 
     print("Determining good distance and parallel proper motion...")
 
-    for ii, d in tqdm.tqdm(enumerate(ds)):
+    for ii, d in tqdm(enumerate(ds)):
         for jj, pmoff in enumerate(pmoffs):
             if alongbfpm:
                 pm = (d - 24.0) * 0.099 + 0.0769 + pmoff

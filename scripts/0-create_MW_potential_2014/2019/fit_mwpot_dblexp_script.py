@@ -1,13 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# ----------------------------------------------------------------------------
-#
-# TITLE   :
-# AUTHOR  :
-# PROJECT :
-#
-# ----------------------------------------------------------------------------
-
 # Docstring
 """MWPotential2014-varyc.
 
@@ -24,9 +16,7 @@ stars, Pal 5, and GD-1 data is also made by this notebook.
 __author__ = "Jo Bovy"
 __maintainer__ = "Nathaniel Starkman"
 
-# __all__ = [
-#     ""
-# ]
+__all__ = ["main"]
 
 
 ###############################################################################
@@ -35,16 +25,17 @@ __maintainer__ = "Nathaniel Starkman"
 # GENERAL
 import os
 import os.path
+import sys
+import argparse
 import pickle
-import numpy
+import numpy as np
 from tqdm import tqdm
+from typing import Optional
 
 # matplotlib
-import matplotlib
 import matplotlib.pyplot as plt
 
 # galpy
-# from galpy import potential
 from galpy.util import (
     bovy_plot,
     save_pickles,
@@ -59,10 +50,14 @@ import script_util as su
 ###############################################################################
 # PARAMETERS
 
-numpy.random.seed(1)  # set random number seed. TODO use numpy1.8 generator
+np.random.seed(1)  # set random number seed. TODO use numpy1.8 generator
 
-matplotlib.use("Agg")
 save_figures = False  # TODO needs papers-directory
+
+
+###############################################################################
+# CODE
+###############################################################################
 
 
 ###############################################################################
@@ -70,7 +65,63 @@ save_figures = False  # TODO needs papers-directory
 ###############################################################################
 
 
-if __name__ == "__main__":
+def make_parser(add_help=True):
+    """Make ArgumentParser for fit_mwpot_dblexp_script.
+
+    Returns
+    -------
+    parser: ArgumentParser
+        the parser with arguments fpath, f
+
+    """
+    parser = argparse.ArgumentParser(
+        prog="fit_mwpot_dblexp_script",
+        description="Fit MW potential with double-exponential disk.",
+        add_help=add_help,
+    )
+    parser.add_argument(
+        "-f",
+        "--figure",
+        default="figures/mwpot_dblexp/",
+        type=str,
+        help="figure save folder",
+        dest="fpath",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="output/",
+        type=str,
+        help="figure save folder",
+        dest="opath",
+    )
+
+    return parser
+
+
+# /def
+
+
+def main(
+    args: Optional[list] = None, opts: Optional[argparse.Namespace] = None
+):
+    """Fit MWPotential with Double-Exponential Disk Script Function.
+
+    Parameters
+    ----------
+    args : list, optional
+        an optional single argument that holds the sys.argv list,
+        except for the script name (e.g., argv[1:])
+
+    """
+    if opts is not None and args is None:
+        pass
+    else:
+        parser = make_parser()
+        opts = parser.parse_args(args)
+
+    fpath = opts.fpath + "/" if not opts.fpath.endswith("/") else opts.fpath
+    opath = opts.opath + "/" if not opts.opath.endswith("/") else opts.opath
 
     # -------------------------------------------------------------------------
     # Using an exponential disk instead of a Miyamoto-Nagai disk
@@ -83,7 +134,7 @@ if __name__ == "__main__":
         fitc=False,
         c=1.0,
         dblexp=True,
-        plots="figures/mwpot_dblexp/Clemens-c_1.pdf",
+        plots=fpath + "Clemens-c_1.pdf",
     )
 
     # -----------------------
@@ -94,7 +145,7 @@ if __name__ == "__main__":
         fitc=False,
         c=0.5,
         dblexp=True,
-        plots="figures/mwpot_dblexp/Clemens-c_0p5.pdf",
+        plots=fpath + "Clemens-c_0p5.pdf",
     )
 
     # -----------------------
@@ -105,7 +156,7 @@ if __name__ == "__main__":
         fitc=False,
         c=1.5,
         dblexp=True,
-        plots="figures/mwpot_dblexp/Clemens-c_1p5.pdf",
+        plots=fpath + "Clemens-c_1p5.pdf",
     )
 
     # -----------------------
@@ -116,32 +167,32 @@ if __name__ == "__main__":
         fitc=True,
         c=None,
         dblexp=True,
-        plots="figures/mwpot_dblexp/Clemens-c_free.pdf",
+        plots=fpath + "Clemens-c_free.pdf",
     )
 
     # -----------------------
 
-    bf_savefilename = "output/mwpot14varyc-dblexp-bf.pkl"
+    bf_savefilename = opath + "mwpot14varyc-dblexp-bf.pkl"
     if os.path.exists(bf_savefilename):
         with open(bf_savefilename, "rb") as savefile:
             cs = pickle.load(savefile)
             bf_params = pickle.load(savefile)
     else:
-        cs = numpy.arange(0.5, 4.1, 0.1)
+        cs = np.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
             dum = su.fit(
                 fitc=False,
                 c=c,
                 dblexp=True,
-                plots="figures/mwpot_dblexp/mwpot14varyc-dblexp-bf-fit.pdf",
+                plots=fpath + "mwpot14varyc-dblexp-bf-fit.pdf",
             )
             bf_params.append(dum[0])
         save_pickles(bf_savefilename, cs, bf_params)
 
     # -----------------------
 
-    samples_savefilename = "output/mwpot14varyc-dblexp-samples.pkl"
+    samples_savefilename = opath + "mwpot14varyc-dblexp-samples.pkl"
     if os.path.exists(samples_savefilename):
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
@@ -151,7 +202,7 @@ if __name__ == "__main__":
             params=p_exp_cfree[0],
             fitc=True,
             c=None,
-            plots="figures/mwpot_dblexp/mwpot14varyc-dblexp-samples.pdf",
+            plots=fpath + "mwpot14varyc-dblexp-samples.pdf",
             dblexp=True,
         )
         save_pickles(samples_savefilename, s)
@@ -163,7 +214,7 @@ if __name__ == "__main__":
         s,
         True,
         False,
-        savefig="figures/mwpot_dblexp/varyc-dblexp-samples-corner.pdf",
+        savefig=fpath + "varyc-dblexp-samples-corner.pdf",
     )
 
     # -----------------------
@@ -180,7 +231,7 @@ if __name__ == "__main__":
         False,
         cs,
         bf_params,
-        savefig="figures/mwpot_dblexp/varyc-dblexp-samples-dependence.pdf",
+        savefig=fpath + "varyc-dblexp-samples-dependence.pdf",
     )
 
     # -----------------------
@@ -195,15 +246,15 @@ if __name__ == "__main__":
         xrange=[0.0, 4.0],
         normed=True,
     )
-    sortedc = numpy.array(sorted(s[7]))
+    sortedc = np.array(sorted(s[7]))
     plt.title(
         "2.5%% and 0.5%% lower limits: %.2f, %.2f"
         % (
-            sortedc[int(numpy.floor(0.025 * len(sortedc)))],
-            sortedc[int(numpy.floor(0.005 * len(sortedc)))],
+            sortedc[int(np.floor(0.025 * len(sortedc)))],
+            sortedc[int(np.floor(0.005 * len(sortedc)))],
         )
     )
-    plt.savefig("figures/mwpot_dblexp/varyc-dblexp-samples-shape_hist.pdf")
+    plt.savefig(fpath + "varyc-dblexp-samples-shape_hist.pdf")
 
     # -----------------------
     # Also fitting $R_0$ and $V_c(R_0)$
@@ -214,12 +265,12 @@ if __name__ == "__main__":
         c=None,
         dblexp=True,
         fitvoro=True,
-        plots="figures/mwpot_dblexp/fitvoro-samples.pdf",
+        plots=fpath + "fitvoro-samples.pdf",
     )
 
     # -----------------------
 
-    samples_savefilename = "output/mwpot14varyc-dblexp-fitvoro-samples.pkl"
+    samples_savefilename = opath + "mwpot14varyc-dblexp-fitvoro-samples.pkl"
     if os.path.exists(samples_savefilename):
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
@@ -229,7 +280,7 @@ if __name__ == "__main__":
             params=p_exp_cfree_voro[0],
             fitc=True,
             c=None,
-            plots="figures/mwpot_dblexp/mwpot14varyc-dblexp-fitvoro-samples.pdf",
+            plots=fpath + "mwpot14varyc-dblexp-fitvoro-samples.pdf",
             dblexp=True,
             fitvoro=True,
         )
@@ -242,7 +293,7 @@ if __name__ == "__main__":
         s,
         True,
         True,
-        savefig="figures/mwpot_dblexp/varyc-dblexp-fitvoro-samples-corner.pdf",
+        savefig=fpath + "varyc-dblexp-fitvoro-samples-corner.pdf",
     )
 
     # -----------------------
@@ -259,7 +310,7 @@ if __name__ == "__main__":
         True,
         cs,
         bf_params,
-        savefig="figures/mwpot_dblexp/varyc-dblexp-fitvoro-samples-dependence.pdf",
+        savefig=fpath + "varyc-dblexp-fitvoro-samples-dependence.pdf",
     )
 
     # -----------------------
@@ -274,16 +325,16 @@ if __name__ == "__main__":
         xrange=[0.0, 4.0],
         normed=True,
     )
-    sortedc = numpy.array(sorted(s[9]))
+    sortedc = np.array(sorted(s[9]))
     plt.title(
         "2.5%% and 0.5%% lower limits: %.2f, %.2f"
         % (
-            sortedc[int(numpy.floor(0.025 * len(sortedc)))],
-            sortedc[int(numpy.floor(0.005 * len(sortedc)))],
+            sortedc[int(np.floor(0.025 * len(sortedc)))],
+            sortedc[int(np.floor(0.005 * len(sortedc)))],
         )
     )
     plt.savefig(
-        "figures/mwpot_dblexp/varyc-dblexp-fitvoro-samples-samples-shape_hist.pdf"
+        fpath + "varyc-dblexp-fitvoro-samples-samples-shape_hist.pdf"
     )
 
     # -----------------------
@@ -296,7 +347,7 @@ if __name__ == "__main__":
         dblexp=True,
         fitvoro=True,
         addgas=True,
-        plots="figures/mwpot_dblexp/varyc-dblexp-fitvoro-addgas.pdf",
+        plots=fpath + "varyc-dblexp-fitvoro-addgas.pdf",
     )
 
     # -----------------------
@@ -311,7 +362,7 @@ if __name__ == "__main__":
             params=p_exp_cfree_voro_wgas[0],
             fitc=True,
             c=None,
-            plots="figures/mwpot_dblexp/mwpot14varyc-dblexp-fitvoro-addgas-samples.pdf",
+            plots=fpath + "mwpot14varyc-dblexp-fitvoro-addgas-samples.pdf",
             dblexp=True,
             fitvoro=True,
             addgas=True,
@@ -325,7 +376,7 @@ if __name__ == "__main__":
         s,
         True,
         True,
-        savefig="figures/mwpot_dblexp/varyc-dblexp-fitvoro-addgas-samples-corner.pdf",
+        savefig=fpath + "varyc-dblexp-fitvoro-addgas-samples-corner.pdf",
     )
 
     # -----------------------
@@ -342,7 +393,7 @@ if __name__ == "__main__":
         True,
         cs,
         bf_params,
-        savefig="figures/mwpot_dblexp/varyc-dblexp-fitvoro-addgas-samples-dependence.pdf",
+        savefig=fpath + "varyc-dblexp-fitvoro-addgas-samples-dependence.pdf",
     )
 
     # -----------------------
@@ -357,20 +408,28 @@ if __name__ == "__main__":
         xrange=[0.0, 4.0],
         normed=True,
     )
-    sortedc = numpy.array(sorted(s[9]))
+    sortedc = np.array(sorted(s[9]))
     plt.title(
         "2.5%% and 0.5%% lower limits: %.2f, %.2f"
         % (
-            sortedc[int(numpy.floor(0.025 * len(sortedc)))],
-            sortedc[int(numpy.floor(0.005 * len(sortedc)))],
+            sortedc[int(np.floor(0.025 * len(sortedc)))],
+            sortedc[int(np.floor(0.005 * len(sortedc)))],
         )
     )
     plt.savefig(
-        "figures/mwpot_dblexp/varyc-dblexp-fitvoro-addgas-samples-shape_hist.pdf"
+        fpath + "varyc-dblexp-fitvoro-addgas-samples-shape_hist.pdf"
     )
 
-# /if
 
+# /def
+
+# ------------------------------------------------------------------------
+
+if __name__ == "__main__":
+
+    main(sys.argv[1:])
+
+# /if
 
 ###############################################################################
 # END

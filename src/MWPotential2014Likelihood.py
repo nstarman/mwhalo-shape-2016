@@ -54,7 +54,7 @@ __maintainer__ = "Nathaniel Starkman"
 
 import numpy as np
 from scipy import integrate
-from matplotlib import pyplot
+import matplotlib.pyplot as plt
 
 import astropy.units as u
 
@@ -650,7 +650,7 @@ def plotRotcurve(pot):
         pot[2], overplot=True, color="k", ls=":", lw=2.0
     )
     # Add legend
-    pyplot.legend(
+    plt.legend(
         (line1[0], line2[0], line3[0]),
         (r"$\mathrm{Bulge}$", r"$\mathrm{Disk}$", r"$\mathrm{Halo}$"),
         loc="upper right",  # bbox_to_anchor=(.91,.375),
@@ -703,7 +703,7 @@ def plotKz(pot, surfrs, kzs, kzerrs, ro=_REFR0, vo=_REFV0):
         zorder=0,
         gcf=True,
     )
-    pyplot.errorbar(
+    plt.errorbar(
         ro - 8.0 + surfrs,
         kzs,
         yerr=kzerrs,
@@ -714,7 +714,7 @@ def plotKz(pot, surfrs, kzs, kzerrs, ro=_REFR0, vo=_REFV0):
         color="k",
         linestyle="none",
     )
-    pyplot.errorbar(
+    plt.errorbar(
         [ro],
         [69.0],
         yerr=[6.0],

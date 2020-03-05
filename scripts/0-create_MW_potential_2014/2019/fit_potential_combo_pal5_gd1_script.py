@@ -32,9 +32,7 @@ plot_mcmc_c
 __author__ = "Jo Bovy"
 __maintainer__ = "Nathaniel Starkman"
 
-# __all__ = [
-#     ""
-# ]
+__all__ = ["main"]
 
 
 ###############################################################################
@@ -43,9 +41,12 @@ __maintainer__ = "Nathaniel Starkman"
 # GENERAL
 import os
 import os.path
+import sys
+import argparse
 import pickle
-import numpy
+import numpy as np
 from tqdm import tqdm
+from typing import Union, Optional
 
 from scipy import integrate
 
@@ -72,7 +73,7 @@ from src import MWPotential2014Likelihood
 ###############################################################################
 # PARAMETERS
 
-numpy.random.seed(1)  # set random number seed. TODO use numpy1.8 generator
+np.random.seed(1)  # set random number seed. TODO use numpy1.8 generator
 
 save_figures = False  # TODO needs papers-directory
 
@@ -81,11 +82,73 @@ _REFV0 = MWPotential2014Likelihood._REFV0
 
 
 ###############################################################################
+# CODE
+###############################################################################
+
+
+###############################################################################
 # Command Line
 ###############################################################################
 
 
-if __name__ == "__main__":
+def make_parser(add_help=True):
+    """Make ArgumentParser for fit_mwpot15_script.
+
+    Returns
+    -------
+    parser: ArgumentParser
+        the parser with arguments fpath, f
+
+    """
+    parser = argparse.ArgumentParser(
+        prog="fit_potential_combo_pal5_gd1_script",
+        description="Fit combination Pal5 and GD1 to MW potential.",
+        add_help=add_help,
+    )
+    parser.add_argument(
+        "-f",
+        "--figure",
+        default="figures/combo_pal5_gd1",
+        type=str,
+        help="figure save folder",
+        dest="fpath",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="output/",
+        type=str,
+        help="figure save folder",
+        dest="opath",
+    )
+
+    return parser
+
+
+# /def
+
+# ------------------------------------------------------------------------
+
+def main(
+    args: Optional[list] = None, opts: Optional[argparse.Namespace] = None
+):
+    """Fit Combination Pal5 and GD1 to MW Potential Script Function.
+
+    Parameters
+    ----------
+    args : list, optional
+        an optional single argument that holds the sys.argv list,
+        except for the script name (e.g., argv[1:])
+
+    """
+    if opts is not None and args is None:
+        pass
+    else:
+        parser = make_parser()
+        opts = parser.parse_args(args)
+
+    fpath = opts.fpath + "/" if not opts.fpath.endswith("/") else opts.fpath
+    opath = opts.opath + "/" if not opts.opath.endswith("/") else opts.opath
 
     # -----------------------
     # Adding in the force measurements from Pal 5 *and* GD-1; also fitting
@@ -99,12 +162,12 @@ if __name__ == "__main__":
         addgd1=True,
         fitvoro=True,
         mc16=True,
-        plots="figures/combo_pal5_gd1/fit.pdf",
+        plots=fpath + "fit.pdf",
     )
 
     # -----------------------
 
-    samples_savefilename = "output/mwpot14varyc-fitvoro-pal5gd1-samples.pkl"
+    samples_savefilename = opath + "mwpot14varyc-fitvoro-pal5gd1-samples.pkl"
     if os.path.exists(samples_savefilename):
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
@@ -114,7 +177,7 @@ if __name__ == "__main__":
             params=p_b15_pal5gd1_voro[0],
             fitc=True,
             c=None,
-            plots="figures/combo_pal5_gd1/mwpot14varyc-fitvoro-pal5gd1-samples.pdf",
+            plots=fpath + "mwpot14varyc-fitvoro-pal5gd1-samples.pdf",
             mc16=True,
             addpal5=True,
             addgd1=True,
@@ -131,24 +194,24 @@ if __name__ == "__main__":
         True,
         addpal5=True,
         addgd1=True,
-        savefig="figures/combo_pal5_gd1/mwpot14varyc-fitvoro-pal5gd1-samples-corner.pdf",
+        savefig=fpath + "mwpot14varyc-fitvoro-pal5gd1-samples-corner.pdf",
     )
 
     # -----------------------
 
-    bf_savefilename = "output/mwpot14varyc-bf.pkl"  # should already exist
+    bf_savefilename = opath + "mwpot14varyc-bf.pkl"  # should already exist
     if os.path.exists(bf_savefilename):
         with open(bf_savefilename, "rb") as savefile:
             cs = pickle.load(savefile)
             bf_params = pickle.load(savefile)
     else:
-        cs = numpy.arange(0.5, 4.1, 0.1)
+        cs = np.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
             dum = su.fit(
                 fitc=False,
                 c=c,
-                plots="figures/combo_pal5_gd1/mwpot14varyc-bf-fit.pdf",
+                plots=fpath + "mwpot14varyc-bf-fit.pdf",
             )
             bf_params.append(dum[0])
         save_pickles(bf_savefilename, cs, bf_params)
@@ -167,7 +230,7 @@ if __name__ == "__main__":
         True,
         cs,
         bf_params,
-        savefig="figures/combo_pal5_gd1/mwpot14varyc-bf-combo_pal5_gd1-dependence.pdf",
+        savefig=fpath + "mwpot14varyc-bf-combo_pal5_gd1-dependence.pdf",
     )
     if save_figures:
         plt.savefig(
@@ -193,36 +256,35 @@ if __name__ == "__main__":
         normed=True,
     )
     plt.savefig(
-        "figures/combo_pal5_gd1/mwpot14varyc-bf-combo_pal5_gd1-shape_hist.pdf"
+        fpath + "mwpot14varyc-bf-combo_pal5_gd1-shape_hist.pdf"
     )
 
-    with open("output/fit_potential_combo-pal5-gd1.txt", "w") as file:
-        sortedc = numpy.array(sorted(s[cindx][-50000:]))
+    with open(opath + "fit_potential_combo-pal5-gd1.txt", "w") as file:
+        sortedc = np.array(sorted(s[cindx][-50000:]))
         file.write(
             "2.5%% and 0.5%% lower limits: %.3f, %.3f"
             % (
-                sortedc[int(numpy.floor(0.025 * len(sortedc)))],
-                sortedc[int(numpy.floor(0.005 * len(sortedc)))],
+                sortedc[int(np.floor(0.025 * len(sortedc)))],
+                sortedc[int(np.floor(0.005 * len(sortedc)))],
             )
         )
         file.write(
             "2.5%% and 0.5%% upper limits: %.3f, %.3f"
             % (
-                sortedc[int(numpy.floor(0.975 * len(sortedc)))],
-                sortedc[int(numpy.floor(0.995 * len(sortedc)))],
+                sortedc[int(np.floor(0.975 * len(sortedc)))],
+                sortedc[int(np.floor(0.995 * len(sortedc)))],
             )
         )
         file.write(
             "Median, 68%% confidence: %.3f, %.3f, %.3f"
             % (
-                numpy.median(sortedc),
-                sortedc[int(numpy.floor(0.16 * len(sortedc)))],
-                sortedc[int(numpy.floor(0.84 * len(sortedc)))],
+                np.median(sortedc),
+                sortedc[int(np.floor(0.16 * len(sortedc)))],
+                sortedc[int(np.floor(0.84 * len(sortedc)))],
             )
         )
         file.write(
-            "Mean, std. dev.: %.2f,%.2f"
-            % (numpy.mean(sortedc), numpy.std(sortedc),)
+            "Mean, std. dev.: %.2f,%.2f" % (np.mean(sortedc), np.std(sortedc),)
         )
 
     # -----------------------
@@ -245,7 +307,7 @@ if __name__ == "__main__":
             -integrate.quad(
                 lambda x: tR ** 2.0
                 * potential.evaluaterforces(
-                    pot[2], tR * x, tR * numpy.sqrt(1.0 - x ** 2.0), phi=0.0
+                    pot[2], tR * x, tR * np.sqrt(1.0 - x ** 2.0), phi=0.0
                 ),
                 0.0,
                 1.0,
@@ -253,35 +315,35 @@ if __name__ == "__main__":
             * bovy_conversion.mass_in_1010msol(_REFV0, _REFR0)
             / 10.0
         )
-    hmass = numpy.array(hmass)
+    hmass = np.array(hmass)
 
     with open(
-        "output/fit_potential_combo-pal5-gd1.txt", "ab"
+        opath + "fit_potential_combo-pal5-gd1.txt", "ab"
     ) as file:  # append
 
         file.write("\nMass Constraints:")
 
-        sortedhm = numpy.array(sorted(hmass))
+        sortedhm = np.array(sorted(hmass))
         file.write(
             "2.5%% and 0.5%% lower limits: %.2f, %.2f"
             % (
-                sortedhm[int(numpy.floor(0.025 * len(sortedhm)))],
-                sortedhm[int(numpy.floor(0.005 * len(sortedhm)))],
+                sortedhm[int(np.floor(0.025 * len(sortedhm)))],
+                sortedhm[int(np.floor(0.005 * len(sortedhm)))],
             )
         )
         file.write(
             "2.5%% and 0.5%% upper limits: %.2f, %.2f"
             % (
-                sortedhm[int(numpy.floor(0.975 * len(sortedhm)))],
-                sortedhm[int(numpy.floor(0.995 * len(sortedhm)))],
+                sortedhm[int(np.floor(0.975 * len(sortedhm)))],
+                sortedhm[int(np.floor(0.995 * len(sortedhm)))],
             )
         )
         file.write(
             "Median, 68%% confidence: %.2f, %.2f, %.2f"
             % (
-                numpy.median(sortedhm),
-                sortedhm[int(numpy.floor(0.16 * len(sortedhm)))],
-                sortedhm[int(numpy.floor(0.84 * len(sortedhm)))],
+                np.median(sortedhm),
+                sortedhm[int(np.floor(0.16 * len(sortedhm)))],
+                sortedhm[int(np.floor(0.84 * len(sortedhm)))],
             )
         )
 
@@ -298,10 +360,19 @@ if __name__ == "__main__":
         xlabel=r"$M_{\mathrm{halo}} (r<20\,\mathrm{kpc})\,(M_\odot)$",
         ylabel=r"$c/a$",
     )
-    plt.savefig("figures/combo_pal5_gd1/scatterplot.pdf")
+    plt.savefig(fpath + "scatterplot.pdf")
 
     # -----------------------
 
+
+# /def
+
+
+# ------------------------------------------------------------------------
+
+if __name__ == "__main__":
+
+    main(sys.argv[1:])
 
 # /if
 

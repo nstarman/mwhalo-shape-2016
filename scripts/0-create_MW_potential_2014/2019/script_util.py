@@ -54,7 +54,11 @@ from matplotlib.ticker import NullFormatter
 from matplotlib import gridspec, cm
 
 # galpy
-from galpy.util import bovy_plot  # bovy_conversion
+from galpy.util import bovy_plot, bovy_conversion
+from galpy import potential
+
+# typing
+from typing import Optional
 
 # CUSTOM
 
@@ -78,10 +82,8 @@ from src.data import (
 
 np.random.seed(1)  # set random number seed. TODO use numpy1.8 generator
 
-_REFR0, _REFV0 = (
-    MWPotential2014Likelihood._REFR0,
-    MWPotential2014Likelihood._REFV0,
-)
+_REFR0 = MWPotential2014Likelihood._REFR0
+_REFV0 = MWPotential2014Likelihood._REFV0
 
 # -------------------------------------------------------------------------
 
@@ -112,7 +114,7 @@ termdata_mc16 = (
 ###############################################################################
 
 
-def make_simulation_folders(drct):
+def make_simulation_folders(drct: str):
     """Make Simulation Folder Structure.
 
     Makes figures, output, and relevant subfolders, if they do not exist.
@@ -148,7 +150,7 @@ def make_simulation_folders(drct):
 # --------------------------------------------------------------------------
 
 
-def clear_simulation(drct, clear_output=True):
+def clear_simulation(drct: str, clear_output: bool = True):
     """Clear Simulation Folder Structure.
 
     Dos NOT clear the output folder
@@ -185,17 +187,17 @@ def clear_simulation(drct, clear_output=True):
 
 @functools.lru_cache(maxsize=32)
 def fit(
-    fitc=False,
-    ro=_REFR0,
-    vo=_REFV0,
-    fitvoro=False,
-    c=1.0,
-    dblexp=False,
-    plots=True,
-    addpal5=False,
-    addgd1=False,
-    mc16=False,
-    addgas=False,
+    fitc: bool = False,
+    ro: float = _REFR0,
+    vo: float = _REFV0,
+    fitvoro: bool = False,
+    c: float = 1.0,
+    dblexp: bool = False,
+    plots: bool = True,
+    addpal5: bool = False,
+    addgd1: bool = False,
+    mc16: bool = False,
+    addgas: bool = False,
 ):
     """Perform a Fit.
 
@@ -897,6 +899,149 @@ def plot_mcmc_c(
 
 
 # /def
+
+
+# -------------------------------------------------------------------------
+
+
+def plotForceField(savefig: Optional[str] = None):
+    """Plot MW Force Field.
+
+    Parameters
+    ----------
+    savefic: str, optional
+
+    """
+    p_b15_pal5gd1_voro = fit(
+        fitc=True, c=None, addpal5=True, addgd1=True, fitvoro=True, mc16=True
+    )
+
+    # Set up potential
+    p_b15 = p_b15_pal5gd1_voro[0]
+    ro, vo = _REFR0, _REFV0
+    pot = MWPotential2014Likelihood.setup_potential(
+        p_b15, p_b15_pal5gd1_voro[0][-1], False, False, ro, vo
+    )
+    # Compute force field
+    Rs = np.linspace(0.01, 20.0, 51)
+    zs = np.linspace(-20.0, 20.0, 151)
+    mRs, mzs = np.meshgrid(Rs, zs, indexing="ij")
+    forces = np.zeros((len(Rs), len(zs), 2))
+    potvals = np.zeros((len(Rs), len(zs)))
+    for ii in tqdm(range(len(Rs))):
+        for jj in tqdm(range(len(zs))):
+            forces[ii, jj, 0] = potential.evaluateRforces(
+                pot,
+                mRs[ii, jj] / ro,
+                mzs[ii, jj] / ro,
+                use_physical=True,
+                ro=ro,
+                vo=vo,
+            )
+            forces[ii, jj, 1] = potential.evaluatezforces(
+                pot,
+                mRs[ii, jj] / ro,
+                mzs[ii, jj] / ro,
+                use_physical=True,
+                ro=ro,
+                vo=vo,
+            )
+            potvals[ii, jj] = potential.evaluatePotentials(
+                pot,
+                mRs[ii, jj] / ro,
+                mzs[ii, jj] / ro,
+                use_physical=True,
+                ro=ro,
+                vo=vo,
+            )
+
+    fig = plt.figure(figsize=(8, 16))
+    skip = 10  # Make sure to keep zs symmetric!!
+    scale = 35.0
+    # Don't plot these
+    # forces[(mRs < 5.)*(np.fabs(mzs) < 4.)]= np.nan
+    forces[(mRs < 2.0) * (np.fabs(mzs) < 5.0)] = np.nan
+    bovy_plot.bovy_dens2d(
+        potvals.T,
+        origin="lower",
+        cmap="viridis",
+        xrange=[Rs[0], Rs[-1]],
+        yrange=[zs[0], zs[-1]],
+        xlabel=r"$R\,(\mathrm{kpc})$",
+        ylabel=r"$Z\,(\mathrm{kpc})$",
+        contours=True,
+        aspect=1.0,
+    )
+    plt.quiver(
+        mRs[1::skip, 5:-1:skip],
+        mzs[1::skip, 5:-1:skip],
+        forces[1::skip, 5:-1:skip, 0],
+        forces[1::skip, 5:-1:skip, 1],
+        scale=scale,
+    )
+    # Add a few lines pointing to the GC
+    for angle in tqdm(np.linspace(0.0, np.pi / 2.0, 8)):
+        plt.plot(
+            (0.0, 100.0 * np.cos(angle)), (0.0, 100.0 * np.sin(angle)), "k:"
+        )
+        plt.plot(
+            (0.0, 100.0 * np.cos(angle)), (0.0, -100.0 * np.sin(angle)), "k:"
+        )
+    # Add measurements
+    # Pal 5
+    plt.quiver(
+        (8.0,), (16.0,), (-0.8,), (-1.82,), color="w", zorder=10, scale=scale
+    )
+    # GD-1
+    plt.quiver(
+        (12.5,),
+        (6.675,),
+        (-2.51,),
+        (-1.47,),
+        color="w",
+        zorder=10,
+        scale=scale,
+    )
+    # Disk + flat APOGEE rotation curve:
+    # Use Bovy & Tremaine (2012) method for translating F_R in the plane to F_R
+    # at 1.1 kpc: dFr/dz = dFz / dR
+    diskrs = np.linspace(5.5, 8.5, 3)
+    diskfzs = (
+        -67.0
+        * np.exp(-(diskrs - 8.0) / 2.7)
+        / bovy_conversion.force_in_2piGmsolpc2(220.0, 8.0)
+        * bovy_conversion.force_in_kmsMyr(220.0, 8.0)
+    )
+    diskfrs = (
+        -(218.0 ** 2.0 / diskrs) * bovy_conversion._kmsInPcMyr / 1000.0
+        - 1.1 * diskfzs / 2.7
+    )
+    plt.quiver(
+        diskrs,
+        1.1 * np.ones_like(diskrs),
+        diskfrs,
+        diskfzs,
+        color="w",
+        zorder=10,
+        scale=scale,
+    )
+    # Labels
+    bovy_plot.bovy_text(5.8, 16.0, r"$\mathbf{Pal\ 5}$", color="w", size=17.0)
+    bovy_plot.bovy_text(12.5, 7.0, r"$\mathbf{GD-1}$", color="w", size=17.0)
+    bovy_plot.bovy_text(
+        8.65, 0.5, r"$\mathbf{disk\ stars}$", color="w", size=17.0
+    )
+    # if save_figures:
+    #     plt.savefig(
+    #         os.path.join(
+    #             os.getenv("PAPERSDIR"), "2016-mwhalo-shape", "forcefield.pdf"
+    #         ),
+    #         bbox_inches="tight",
+    #     )
+    if savefig is not None:
+        fig.savefig(savefig)
+
+    return fig
 
 
 ###############################################################################
