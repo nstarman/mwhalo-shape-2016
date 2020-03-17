@@ -27,19 +27,20 @@ __all__ = [
 # IMPORTS
 
 # GENERAL
+import os
 import numpy as np
 from collections import namedtuple
 
 # typing
 from typing import Sequence, Tuple
 
-# CUSTOM
-
-# PROJECT-SPECIFIC
-
 
 ##############################################################################
 # PARAMETERS
+
+dir_path: str = os.path.dirname(os.path.realpath(__file__))
+"""Path to current directory. Needed for imports from this folder, regardless
+of where the data readers are called."""
 
 BovyRix13Tuple = namedtuple("BovyRix13Data", ["surfrs", "kzs", "kzerrs"])
 TermVelTuple = namedtuple("TerminalVelocityData", ["glon", "vterm", "corr"])
@@ -61,7 +62,7 @@ def readBovyRix13kzdata() -> BovyRix13Tuple:
         surfrs, kzs, kzerrs
 
     """
-    file: str = "mwpot14data/bovyrix13kzdata.csv"
+    file: str = dir_path + "/mwpot14data/bovyrix13kzdata.csv"
 
     surf = np.loadtxt(file, delimiter=",")
     surfrs = surf[:, 2]
@@ -81,10 +82,13 @@ def readBovyRix13kzdata() -> BovyRix13Tuple:
 def _calc_corr(singlon: Sequence, dsinl: float) -> np.ndarray:
     """Calculate correlation matrix."""
     corr = np.zeros((len(singlon), len(singlon)))
+
+    ii: int
     for ii in range(len(singlon)):
         for jj in range(len(singlon)):
             corr[ii, jj] = np.exp(-np.fabs(singlon[ii] - singlon[jj]) / dsinl)
-    corr = 0.5 * (corr + corr.T)
+    corr = (corr + corr.T) / 2.
+
     return corr + 10.0 ** -10.0 * np.eye(len(singlon))  # for stability
 
 
@@ -103,6 +107,8 @@ def _binlbins(
     nout = maxglon - minglon + 1
     glon_out = np.zeros(nout)
     vterm_out = np.zeros(nout)
+
+    ii: int
     for ii in range(nout):
         indx = (glon > minglon + ii) * (glon < minglon + ii + 1)
         glon_out[ii] = np.mean(glon[indx])
@@ -130,7 +136,7 @@ def readClemens(dsinl: float = 0.5 / 8.0,) -> TermVelTuple:
         TermVelTuple(glon, vterm, err)
 
     """
-    file: str = "mwpot14data/clemens1985_table2.dat"
+    file: str = dir_path + "/mwpot14data/clemens1985_table2.dat"
 
     data = np.loadtxt(file, delimiter="|", comments="#",)
     glon = data[:, 0]
@@ -176,7 +182,7 @@ def readMcClureGriffiths07(
         TermVelTuple(glon, vterm, err)
 
     """
-    file: str = "mwpot14data/McClureGriffiths2007.dat"
+    file: str = dir_path + "/mwpot14data/McClureGriffiths2007.dat"
 
     data = np.loadtxt(file, comments="#")
     glon = data[:, 0]
@@ -215,7 +221,7 @@ def readMcClureGriffiths16(
         TermVelTuple(glon, vterm, err)
 
     """
-    file: str = "mwpot14data/McClureGriffiths2016.dat"
+    file: str = dir_path + "/mwpot14data/McClureGriffiths2016.dat"
 
     data = np.loadtxt(file, comments="#", delimiter="&",)
     glon = data[:, 0]

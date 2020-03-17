@@ -46,9 +46,10 @@ import copy
 import time
 import pickle
 import csv
-from optparse import OptionParser
+from argparse import ArgumentParser, Namespace
+from typing import Optional
 
-import numpy
+import numpy as np
 from scipy.special import logsumexp
 import emcee
 
@@ -70,12 +71,12 @@ _DATADIR = os.getenv("DATADIR")
 ###############################################################################
 
 
-def load_samples(options: OptionParser):
+def load_samples(options: Namespace):
     """Load Samples.
 
     Parameters
     ----------
-    options: OptionParser
+    options: Namespace
 
     Returns
     -------
@@ -102,7 +103,7 @@ def load_samples(options: OptionParser):
 
 
 def find_starting_point(
-    options: OptionParser,
+    options: Namespace,
     pot_params: list,
     dist: float,
     pmra: float,
@@ -116,7 +117,7 @@ def find_starting_point(
 
     Parameters
     ----------
-    options: OptionParser
+    options: Namespace
     pot_params: list
     dist: float
     pmra: float
@@ -130,7 +131,7 @@ def find_starting_point(
     """
     # start with a prediction
     interpcs = [0.65, 0.75, 0.875, 1.0, 1.125, 1.25, 1.5, 1.65]
-    cs = numpy.arange(0.7, 1.61, 0.01)
+    cs = np.arange(0.7, 1.61, 0.01)
     pal5varyc_like = pal5_util.predict_pal5obs(
         pot_params,
         cs,
@@ -152,7 +153,7 @@ def find_starting_point(
     pos_radec, rvel_ra = pal5_util.pal5_data_2016()
 
     if options.fitsigma:
-        lnlike = numpy.sum(
+        lnlike = np.sum(
             pal5_util.pal5_lnlike(
                 pos_radec,
                 rvel_ra,
@@ -169,8 +170,8 @@ def find_starting_point(
     else:
         # For each one, move the track up and down a little
         # to simulate sig changes
-        deco = numpy.linspace(-0.5, 0.5, 101)
-        lnlikes = numpy.zeros((len(cs), len(deco))) - 100000000000000000.0
+        deco = np.linspace(-0.5, 0.5, 101)
+        lnlikes = np.zeros((len(cs), len(deco))) - 100000000000000000.0
         for jj, do in enumerate(deco):
             tra = pal5varyc_like[0]
             tra[:, :, 1] += do
@@ -185,9 +186,9 @@ def find_starting_point(
                 pal5varyc_like[5],
                 pal5varyc_like[6],
             )[:, 0]
-        lnlike = numpy.amax(lnlikes, axis=1)
+        lnlike = np.amax(lnlikes, axis=1)
 
-    return cs[numpy.argmax(lnlike)]
+    return cs[np.argmax(lnlike)]
 
 
 # /def
@@ -196,14 +197,14 @@ def find_starting_point(
 # ------------------------------------------------------------------------
 
 
-def lnp(p: list, pot_params: list, options: OptionParser):
+def lnp(p: list, pot_params: list, options: Namespace):
     """Log Likelihood.
 
     Parameters
     ----------
     p: list
     pot_params: list
-    options: OptionParser
+    options: Namespace
 
     Returns
     -------
@@ -225,7 +226,7 @@ def lnp(p: list, pot_params: list, options: OptionParser):
     pmdec = -2.257 + p[3] * pmdecpar + p[4] * pmdecperp
 
     if options.fitsigma:
-        sigv = 0.4 * numpy.exp(p[5])
+        sigv = 0.4 * np.exp(p[5])
     else:
         sigv = 0.4
 
@@ -298,8 +299,8 @@ def lnp(p: list, pot_params: list, options: OptionParser):
 
     # If not fitsigma, move the track up and down a little
     # to simulate sig changes
-    deco = numpy.linspace(-0.5, 0.5, 101)
-    lnlikes = numpy.zeros(len(deco)) - 100000000000000000.0
+    deco = np.linspace(-0.5, 0.5, 101)
+    lnlikes = np.zeros(len(deco)) - 100000000000000000.0
     for jj, do in enumerate(deco):
         tra = copy.deepcopy(pal5varyc_like[0])
         tra[:, :, 1] += do
@@ -342,76 +343,80 @@ def lnp(p: list, pot_params: list, options: OptionParser):
 ###############################################################################
 
 
-def get_options():
+def make_parser():
     """Command-line Options."""
     usage = "usage: %prog [options]"
-    parser = OptionParser(usage=usage)  # TODO update to argparse
+    parser = ArgumentParser(
+        usage=usage, description="MCMC analysis routines of Palomar 5"
+    )
     # Potential parameters
-    parser.add_option(
+    parser.add_argument(
         "--bf_b15",
         action="store_true",
         dest="bf_b15",
         default=False,
         help="If set, use the best-fit to the MWPotential2014 data",
     )
-    parser.add_option(
+    parser.add_argument(
         "--seed",
         dest="seed",
         default=1,
         type="int",
         help="seed for everything except for potential",
     )
-    parser.add_option(
+    parser.add_argument(
         "--fitsigma",
         action="store_true",
         dest="fitsigma",
         default=False,
         help="If set, fit for the velocity-dispersion parameter",
     )
-    parser.add_option(
+    parser.add_argument(
         "--dt",
         dest="dt",
         default=10.0,
         type="float",
         help="Run MCMC for this many minutes",
     )
-    parser.add_option(
+    parser.add_argument(
         "-i",
         dest="pindx",
         default=None,
         type="int",
         help="Index into the potential samples to consider",
     )
-    parser.add_option(
+    parser.add_argument(
         "--ro",
         dest="ro",
         default=pal5_util._REFR0,
         type="float",
         help="Distance to the Galactic center in kpc",
     )
-    parser.add_option(
+    parser.add_argument(
         "--td",
         dest="td",
         default=5.0,
         type="float",
         help="Age of the stream in Gyr",
     )
-    parser.add_option(
+    parser.add_argument(
         "--samples_savefilename",
         dest="samples_savefilename",
-        default=("../../0-create_MW_potential_2014/"
-                 "latest/output/mwpot14varyc-samples.pkl"),
+        default=(
+            "../../0-create_MW_potential_2014/"
+            "latest/output/mwpot14varyc-samples.pkl"
+        ),
         help="Name of the file that contains the potential samples",
     )
     # Output file
-    parser.add_option(
+    parser.add_argument(
         "-o",
         dest="outfilename",
         default=None,
         help="Name of the file that will hold the output",
     )
     # Multi-processing
-    parser.add_option(
+    parser.add_argument(
         "-m",
         dest="multi",
         default=1,
@@ -427,12 +432,24 @@ def get_options():
 # ------------------------------------------------------------------------
 
 
-if __name__ == "__main__":
+def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
+    """MCMC Pal 5.
 
-    parser = get_options()
-    options, args = parser.parse_args()
+    Parameters
+    ----------
+    args : list, optional
+        an optional single argument that holds the sys.argv list,
+        except for the script name (e.g., argv[1:])
+
+    """
+    if opts is not None and args is None:
+        options = opts
+    else:
+        parser = make_parser()
+        options = parser.parse_args(args)
+
     # Set random seed for potential selection
-    numpy.random.seed(1)
+    np.random.seed(1)
 
     # Load potential parameters
     if options.bf_b15:
@@ -447,18 +464,18 @@ if __name__ == "__main__":
         ]
     else:
         pot_samples = load_samples(options)
-        rndindx = numpy.random.permutation(pot_samples.shape[1])[options.pindx]
+        rndindx = np.random.permutation(pot_samples.shape[1])[options.pindx]
         pot_params = pot_samples[:, rndindx]
     print(pot_params)
 
     # Now set the seed for the MCMC
-    numpy.random.seed(options.seed)
+    np.random.seed(options.seed)
     nwalkers = 10 + 2 * options.fitsigma
 
     # For a fiducial set of parameters, find a good fit to use as the starting
     # point
-    all_start_params = numpy.zeros((nwalkers, 5 + options.fitsigma))
-    start_lnprob0 = numpy.zeros(nwalkers)
+    all_start_params = np.zeros((nwalkers, 5 + options.fitsigma))
+    start_lnprob0 = np.zeros(nwalkers)
     if not os.path.exists(options.outfilename):
         pmra = -2.296
         pmdec = -2.257
@@ -468,20 +485,17 @@ if __name__ == "__main__":
         if cstart > 1.15:
             cstart = 1.15  # Higher c doesn't typically really work
         if options.fitsigma:
-            start_params = numpy.array(
-                [cstart, 1.0, dist / 22.0, 0.0, 0.0, 0.0]
-            )
-            step = numpy.array([0.05, 0.05, 0.05, 0.05, 0.01, 0.05])
+            start_params = np.array([cstart, 1.0, dist / 22.0, 0.0, 0.0, 0.0])
+            step = np.array([0.05, 0.05, 0.05, 0.05, 0.01, 0.05])
         else:
-            start_params = numpy.array([cstart, 1.0, dist / 22.0, 0.0, 0.0])
-            step = numpy.array([0.05, 0.05, 0.05, 0.05, 0.01])
+            start_params = np.array([cstart, 1.0, dist / 22.0, 0.0, 0.0])
+            step = np.array([0.05, 0.05, 0.05, 0.05, 0.01])
         nn = 0
         print("walker: ", end="")
         while nn < nwalkers:
             print(nn, end=", ")
             all_start_params[nn] = (
-                start_params
-                + numpy.random.normal(size=len(start_params)) * step
+                start_params + np.random.normal(size=len(start_params)) * step
             )
             start_lnprob0[nn] = lnp(all_start_params[nn], pot_params, options)
             if start_lnprob0[nn] > -1000000.0:
@@ -495,9 +509,7 @@ if __name__ == "__main__":
             all_lines = savefile.readlines()
         for nn in range(nwalkers):
             lastline = all_lines[-1 - nn]
-            tstart_params = numpy.array(
-                [float(s) for s in lastline.split(",")]
-            )
+            tstart_params = np.array([float(s) for s in lastline.split(",")])
             start_lnprob0[nn] = tstart_params[-1]
             all_start_params[nn] = tstart_params[:-1]
 
@@ -545,7 +557,7 @@ if __name__ == "__main__":
                     )
                 )
         outfile.flush()
-    outwriter = csv.writer(outfile, delimiter=",")
+    # outwriter = csv.writer(outfile, delimiter=",")
 
     # Run MCMC
     sampler = emcee.EnsembleSampler(
@@ -556,7 +568,7 @@ if __name__ == "__main__":
         threads=options.multi,
     )
 
-    rstate0 = numpy.random.mtrand.RandomState().get_state()
+    rstate0 = np.random.mtrand.RandomState().get_state()
     start = time.time()
     while time.time() < start + options.dt * 60.0:
         new_params, new_lnp, new_rstate0 = sampler.run_mcmc(
@@ -597,6 +609,20 @@ if __name__ == "__main__":
                 )
         outfile.flush()
     outfile.close()
+
+
+# /def
+
+
+# ------------------------------------------------------------------------
+
+if __name__ == "__main__":
+
+    import sys
+
+    main(sys.argv[1:])
+
+# /if
 
 
 ###############################################################################

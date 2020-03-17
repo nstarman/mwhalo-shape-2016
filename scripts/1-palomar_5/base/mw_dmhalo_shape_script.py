@@ -19,13 +19,7 @@ Routing Listings
 """
 
 __author__ = "Jo Bovy"
-# __copyright__ = "Copyright 2019, "
-# __credits__ = [""]
-# __license__ = "MIT"
-# __version__ = "0.0.0"
 __maintainer__ = "Nathaniel Starkman"
-# __email__ = ""
-# __status__ = "Production"
 
 # __all__ = [
 #     ""

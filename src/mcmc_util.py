@@ -24,7 +24,8 @@ from galpy.util.bovy_coords import lb_to_radec
 from galpy.util import bovy_plot
 
 # CUSTOM
-# from astroPHD.util import ObjDict, LogFile
+from astroPHD.util import ObjDict
+
 # from astroPHD.util.multi import parallel_map
 # from astroPHD.select import inRange
 
@@ -85,10 +86,13 @@ def determine_nburn(
 
     else:
         if maxln > -22.5:
-            indx *= np.std(lndata, axis=1) < 3.0
+            indx &= np.std(lndata, axis=1) < 3.0
 
         if return_nsamples:
-            return len(data) - np.arange(len(lndata))[indx][0] * nwalkers
+            if indx.sum() == 0:
+                return 0
+            else:
+                return len(data) - np.arange(len(lndata))[indx][0] * nwalkers
 
         if indx.sum() == 0:
             return 0
@@ -630,7 +634,6 @@ def plot_chains(drct, nwalkers=12, ffmt=".dat"):
     chains = np.sort(
         [f for f in files if f.endswith(ffmt)]
     )  # get files with right file format.
-    print(chains)
 
     npot = len(chains)
     ncol = 4
@@ -661,6 +664,7 @@ def plot_chains(drct, nwalkers=12, ffmt=".dat"):
                 alpha=0.4,
                 color=cmap(jj / 11.0),
                 # yrange=[-40.0, -15.0],
+                yrange=[-100.0, 0.0],
                 ylabel=tylabel,
                 xlabel=txlabel,
                 gcf=True,
