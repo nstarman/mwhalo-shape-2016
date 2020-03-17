@@ -21,9 +21,22 @@ Routing Listings
 __author__ = "Jo Bovy"
 __maintainer__ = "Nathaniel Starkman"
 
-# __all__ = [
-#     ""
-# ]
+__all__ = [
+    "fiducial_model",
+    "model_vary_c_along_the_best_fit_line",
+    "model-vary_b_for_c_1_pa_0",
+    "model_vary_b_for_c_1_pa_45",
+    "model_vary_d",
+    "model_vary_pm_pll",
+    "model_vary_pm_perp",
+    "model_stream_struct_vary_c",
+    "model_stream_struct_vary_vcirc",
+    "model_stream_struct_vary_d",
+    "model_stream_struct_vary_pm",
+    "plot_all",
+    "make_parser",
+    "main",
+]
 
 
 ###############################################################################
@@ -32,9 +45,14 @@ __maintainer__ = "Nathaniel Starkman"
 # GENERAL
 import os
 import os.path
+import argparse
 import pickle
-import numpy as np
 import warnings
+from typing import Optional
+
+
+import numpy as np
+
 from tqdm import tqdm
 
 # galpy
@@ -54,8 +72,7 @@ from matplotlib.cbook import MatplotlibDeprecationWarning
 # fmt: off
 import sys; sys.path.insert(0, '../../../')
 # fmt: on
-from src import MWPotential2014Likelihood
-from src import pal5_util
+from src import MWPotential2014Likelihood, pal5_util
 
 
 ###############################################################################
@@ -78,10 +95,6 @@ pos_radec, rvel_ra = pal5_util.pal5_total_data()
 ###############################################################################
 # CODE
 ###############################################################################
-
-width_trailing = pal5_util.width_trailing
-
-# --------------------------------------------------------------------------
 
 
 def plot_data_add_labels(
@@ -169,17 +182,20 @@ def add_colorbar(vmin, vmax, clabel, save_figures=False):
 
 # /def
 
-###############################################################################
-# Command Line
-###############################################################################
 
-if __name__ == "__main__":
+def fiducial_model(
+    sdf_trailing="output/sdf_trailing.pkl",
+    sdf_leading="output/sdf_leading.pkl",
+    threshold=0.3,
+    ro=_REFR0,
+    vo=_REFV0,
+):
+    """Fiducial Model.
 
-    #################################################################
-    # Fiducial Model
-    # The fiducial model assumes a spherical halo, with the best-fit
-    # parameters from fitting to the MWPotential2014 data
+    The fiducial model assumes a spherical halo, with the best-fit
+    parameters from fitting to the MWPotential2014 data
 
+    """
     p_b15 = [
         0.60122692,
         0.36273147,
@@ -191,14 +207,14 @@ if __name__ == "__main__":
     ]
 
     pot = MWPotential2014Likelihood.setup_potential(
-        p_b15, 1.0, False, False, _REFR0, _REFV0
+        p_b15, 1.0, False, False, ro, vo
     )
 
     prog = Orbit(
         [229.018, -0.124, 23.2, -2.296, -2.257, -58.7],
         radec=True,
-        ro=_REFR0,
-        vo=_REFV0,
+        ro=ro,
+        vo=vo,
         solarmotion=[-11.1, 24.0, 7.25],
     )
     aAI = actionAngleIsochroneApprox(pot=pot, b=0.8)
@@ -207,50 +223,49 @@ if __name__ == "__main__":
     # ----------------------------------------------------------
 
     try:
-        with open("output/sdf_trailing.pkl", "rb") as file:
+        with open(sdf_trailing, "rb") as file:
             sdf_trailing = pickle.load(file)
     except Exception:
         sdf_trailing = streamdf(
-            sigv / _REFV0,
+            sigv / vo,
             progenitor=prog,
             pot=pot,
             aA=aAI,
             leading=False,
             nTrackChunks=11,
-            tdisrupt=10.0 / bovy_conversion.time_in_Gyr(_REFV0, _REFR0),
-            ro=_REFR0,
-            vo=_REFV0,
-            R0=_REFR0,
-            vsun=[-11.1, _REFV0 + 24.0, 7.25],
+            tdisrupt=10.0 / bovy_conversion.time_in_Gyr(vo, ro),
+            ro=ro,
+            vo=vo,
+            R0=ro,
+            vsun=[-11.1, vo + 24.0, 7.25],
             custom_transform=pal5_util._TPAL5,
         )
-        with open("output/sdf_trailing.pkl", "wb") as file:
+        with open(sdf_trailing, "wb") as file:
             pickle.dump(sdf_trailing, file)
 
     try:
-        with open("output/sdf_leading.pkl", "rb") as file:
+        with open(sdf_leading, "rb") as file:
             sdf_leading = pickle.load(file)
     except Exception:
         sdf_leading = streamdf(
-            sigv / _REFV0,
+            sigv / vo,
             progenitor=prog,
             pot=pot,
             aA=aAI,
             leading=True,
             nTrackChunks=11,
-            tdisrupt=10.0 / bovy_conversion.time_in_Gyr(_REFV0, _REFR0),
-            ro=_REFR0,
-            vo=_REFV0,
-            R0=_REFR0,
-            vsun=[-11.1, _REFV0 + 24.0, 7.25],
+            tdisrupt=10.0 / bovy_conversion.time_in_Gyr(vo, ro),
+            ro=ro,
+            vo=vo,
+            R0=ro,
+            vsun=[-11.1, vo + 24.0, 7.25],
             custom_transform=pal5_util._TPAL5,
         )
-        with open("output/sdf_leading.pkl", "wb") as file:
+        with open(sdf_leading, "wb") as file:
             pickle.dump(sdf_leading, file)
 
     # ----------------------------------------------------------
 
-    threshold = 0.3
     print(
         "Angular length: %f deg (leading,trailing)=(%f,%f) deg"
         % (
@@ -266,7 +281,10 @@ if __name__ == "__main__":
             ),
         )
     )
-    print("Angular width (FWHM): %f arcmin" % (width_trailing(sdf_trailing)))
+    print(
+        "Angular width (FWHM): %f arcmin"
+        % (pal5_util.width_trailing(sdf_trailing))
+    )
     print(
         "Velocity dispersion: %f km/s"
         % (pal5_util.vdisp_trailing(sdf_trailing))
@@ -294,6 +312,7 @@ if __name__ == "__main__":
     )
 
     # ----------------------------------------------------------
+    # plotting
 
     plt.figure(figsize=(12, 4))
     plt.subplot(1, 2, 1)
@@ -377,8 +396,13 @@ if __name__ == "__main__":
 
     plt.savefig("figures/fiducial_model.pdf")
 
-    #################################################################
-    # The orbit of Pal 5 in different flattened and triaxial potentials
+    return
+
+
+# /def
+
+
+def model_vary_c_along_the_best_fit_line():
 
     bf_savefilename = _MW_POT_SCRIPT_FOLDER + "/output/mwpot14varyc-bf.pkl"
     if os.path.exists(bf_savefilename):
@@ -444,6 +468,14 @@ if __name__ == "__main__":
     add_colorbar(0.5, 3.0, r"$c$", save_figures=False)
     plt.savefig("figures/varyc_bestfitline.pdf")
 
+    return
+
+
+# /def
+
+
+def model_vary_b_for_c_1_pa_0():
+
     # ----------------------------------------------------------
     # Vary $b$ for $c=1$ (pa=0):
 
@@ -502,6 +534,14 @@ if __name__ == "__main__":
     add_colorbar(0.5, 2.0, r"$b$", save_figures=False)
     plt.savefig("figures/varyb_c-1_pa-0.pdf")
 
+    return
+
+
+# /def
+
+
+def model_vary_b_for_c_1_pa_45():
+
     # ----------------------------------------------------------
     # Vary $b$ for $c=1$ (pa=45 degree):
 
@@ -558,6 +598,14 @@ if __name__ == "__main__":
     plot_data_add_labels(color="k")
     add_colorbar(0.5, 2.0, r"$b$", save_figures=False)
     plt.savefig("figures/varyb_c-1_pa-45.pdf")
+
+    return
+
+
+# /def
+
+
+def model_vary_d():
 
     # ----------------------------------------------------------
     # The Pal 5 stream is not very sensitive to changes in $b$.
@@ -620,6 +668,9 @@ if __name__ == "__main__":
         save_figures=False,
     )
     plt.savefig("figures/varyd.pdf")
+
+
+def model_vary_pm_pll():
 
     # ----------------------------------------------------------
     # Vary the proper motion parallel to the stream
@@ -698,6 +749,9 @@ if __name__ == "__main__":
     )
     plt.savefig("figures/varypm-prll.pdf")
 
+
+def model_vary_pm_perp():
+
     # ----------------------------------------------------------
     # Vary the proper motion perpendicular to the stream:
 
@@ -770,14 +824,13 @@ if __name__ == "__main__":
     )
     plt.savefig("figures/varypm-perp.pdf")
 
-    #################################################################
-    # How does the track, width, and length of the Pal 5 stream vary with the
-    # potential and the uncertain phase-space location of the Pal 5 cluster?
 
-    # ----------------------------------------------------------
-    # Varying the flattening $c$ of the halo
-    # We compute the stream structure for a fiducial set of parameters, to get
-    # a sense of where the track lies and how the width and length vary
+#################################################################
+# How does the track, width, and length of the Pal 5 stream vary with the
+# potential and the uncertain phase-space location of the Pal 5 cluster?
+
+
+def _get_pal5varyc():
 
     p_b15 = [
         0.60122692,
@@ -803,6 +856,21 @@ if __name__ == "__main__":
             interpcs=[0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25],
         )
         save_pickles(savefilename, cs, pal5varyc)
+
+    return pal5varyc, cs
+
+
+# /def
+
+
+def model_stream_struct_vary_c():
+
+    # ----------------------------------------------------------
+    # Varying the flattening $c$ of the halo
+    # We compute the stream structure for a fiducial set of parameters, to get
+    # a sense of where the track lies and how the width and length vary
+
+    pal5varyc, cs = _get_pal5varyc()
 
     # -------------------------------------------
 
@@ -839,8 +907,15 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig("figures/mwpot14-pal5-varyc.pdf")
 
-    # ----------------------------------------------------------
-    # Varying the circular velocity $V_c(R_0)$ to change the normalization of the potential
+    return
+
+
+# /def
+
+
+def _get_pal5varyvc():
+
+    pal5varyc, cs = _get_pal5varyc()
 
     savefilename = _MW_POT_SCRIPT_FOLDER + "output/mwpot14-pal5-varyvc.pkl"
 
@@ -869,6 +944,15 @@ if __name__ == "__main__":
             for jj in range(4):
                 pal5varyvc[ii, jj] = t[jj][0]
         save_pickles(savefilename, vcs, pal5varyvc)
+
+    return pal5varyvc, vcs
+
+
+def model_stream_struct_vary_vcirc():
+    # ----------------------------------------------------------
+    # Varying the circular velocity $V_c(R_0)$ to change the normalization of the potential
+
+    pal5varyvc, vcs = _get_pal5varyc()
 
     plt.figure(figsize=(12, 4))
 
@@ -904,8 +988,10 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig("figures/mwpot14-pal5-varyvc.pdf")
 
-    # ----------------------------------------------------------
-    # Varying the distance to the Pal 5 cluster
+
+def _get_pal5varyd():
+
+    pal5varyc, cs = _get_pal5varyc()
 
     savefilename = _MW_POT_SCRIPT_FOLDER + "output/mwpot14-pal5-varyd.pkl"
 
@@ -935,6 +1021,17 @@ if __name__ == "__main__":
             for jj in range(4):
                 pal5varyd[ii, jj] = t[jj][0]
         save_pickles(savefilename, ds, pal5varyd)
+
+    return pal5varyd, ds
+
+
+def model_stream_struct_vary_d():
+
+    pal5varyc, cs = _get_pal5varyc()
+    pal5varyd, ds = _get_pal5varyd()
+
+    # ----------------------------------------------------------
+    # Varying the distance to the Pal 5 cluster
 
     plt.figure(figsize=(12, 4))
 
@@ -970,8 +1067,10 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig("figures/mwpot14-pal5-varyd.pdf")
 
-    # ----------------------------------------------------------
-    # Varying the proper motion of the Pal 5 cluster
+
+def _get_pal5varypm():
+
+    pal5varyc, cs = _get_pal5varyc()
 
     savefilename = _MW_POT_SCRIPT_FOLDER + "output/mwpot14-pal5-varypm.pkl"
 
@@ -1009,6 +1108,20 @@ if __name__ == "__main__":
                 pal5varypm[ii, jj] = t[jj][0]
         save_pickles(savefilename, pms, pal5varypm)
 
+    return pal5varypm, pms
+
+
+# /def
+
+
+def model_stream_struct_vary_pm():
+
+    pal5varyc, cs = _get_pal5varyc()
+    pal5varypm, pms = _get_pal5varypm()
+
+    # ----------------------------------------------------------
+    # Varying the proper motion of the Pal 5 cluster
+
     plt.figure(figsize=(12, 4))
 
     for ii, pm in enumerate(pms):
@@ -1042,6 +1155,13 @@ if __name__ == "__main__":
     plot_data_add_labels()
     plt.tight_layout()
     plt.savefig("figures/mwpot14-pal5-varypm.pdf")
+
+
+def plot_all():
+
+    pal5varyc, cs = _get_pal5varyc()
+    pal5varyd, ds = _get_pal5varyd()
+    pal5varypm, pms = _get_pal5varypm()
 
     # ----------------------------------------------------------
     # All in one plot
@@ -1222,7 +1342,78 @@ if __name__ == "__main__":
         )
     plt.savefig("figures/2016-mwhalo-shape-pal5track.pdf")
 
+
+###############################################################################
+# Command Line
+###############################################################################
+
+
+def make_parser(inheritable=False):
+    """Expose parser for ``main``.
+
+    Parameters
+    ----------
+    inheritable: bool
+        whether the parser can be inherited from (default False).
+        if True, sets ``add_help=False`` and ``conflict_hander='resolve'``
+
+    Returns
+    -------
+    parser: ArgumentParser
+
+    """
+    parser = argparse.ArgumentParser(
+        description="",
+        add_help=~inheritable,
+        conflict_handler="resolve" if ~inheritable else "error",
+    )
+
+    return parser
+
+
+# /def
+
+
+# ------------------------------------------------------------------------
+
+
+def main(
+    args: Optional[list] = None, opts: Optional[argparse.Namespace] = None
+):
+    """Script Function.
+
+    Parameters
+    ----------
+    args : list, optional
+        an optional single argument that holds the sys.argv list,
+        except for the script name (e.g., argv[1:])
+    opts : Namespace, optional
+        pre-constructed results of parsed args
+        if not None, used ONLY if args is None
+
+    """
+    if opts is not None and args is None:
+        pass
+    else:
+        if opts is not None:
+            warnings.warn("Not using `opts` because `args` are given")
+        parser = make_parser()
+        opts = parser.parse_args(args)
+
+    return
+
+
+# /def
+
+
+# ------------------------------------------------------------------------
+
+if __name__ == "__main__":
+
+    main(args=None, opts=None)  # all arguments except script name
+
 # /if
+
 
 ###############################################################################
 # END
