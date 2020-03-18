@@ -31,21 +31,19 @@ from astroPHD.util import ObjDict
 
 
 # PROJECT-SPECIFIC
-from . import MWPotential2014Likelihood
-from . import pal5_util
+from .mw_pot import MWPotential2014Likelihood, REFR0, REFV0
+from .streams.pal5 import pal5_util
 
 
 ###############################################################################
 # PARAMETERS
 
-_R0 = MWPotential2014Likelihood._REFR0
-_V0 = MWPotential2014Likelihood._REFV0
+_R0 = REFR0
+_V0 = REFV0
 
 # Some parameters defining the proper motion direction in Bovy et al. (2016)
 _PMDECPAR = 2.257 / 2.296
 _PMDECPERP = -2.296 / 2.257
-
-# _LOGFILE = LogFile(verbose=2, header=False)
 
 
 ###############################################################################

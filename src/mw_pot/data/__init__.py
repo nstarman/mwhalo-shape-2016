@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""Data.
+"""MWPotential14 Data.
 
 Storage location for "static" data -- data which will not change
 over the course of the research. This is the desired location for external data
@@ -9,7 +9,11 @@ contained within the relevant folder.
 
 Routine Listings
 ----------------
-module
+read_bovyrix13kzdata
+readClemens
+readMcClureGriffiths
+readMcClureGriffiths16
+readallMcClureGriffiths
 
 """
 
@@ -21,7 +25,9 @@ __all__ = [
     "readClemens",
     "readMcClureGriffiths",
     "readMcClureGriffiths16",
+    "readallMcClureGriffiths"
 ]
+
 
 ##############################################################################
 # IMPORTS
@@ -45,6 +51,7 @@ of where the data readers are called."""
 BovyRix13Tuple = namedtuple("BovyRix13Data", ["surfrs", "kzs", "kzerrs"])
 TermVelTuple = namedtuple("TerminalVelocityData", ["glon", "vterm", "corr"])
 
+
 ##############################################################################
 # CODE
 ##############################################################################
@@ -53,7 +60,7 @@ TermVelTuple = namedtuple("TerminalVelocityData", ["glon", "vterm", "corr"])
 def readBovyRix13kzdata() -> BovyRix13Tuple:
     """Read Data from BovyRix2013.
 
-    The file is in data/mwpot14data/bovyrix13kzdata.csv
+    The file is in data/bovyrix13kzdata.csv
     it has three columns: surfrs, kzs, kzerrs
 
     Returns
@@ -62,7 +69,7 @@ def readBovyRix13kzdata() -> BovyRix13Tuple:
         surfrs, kzs, kzerrs
 
     """
-    file: str = dir_path + "/mwpot14data/bovyrix13kzdata.csv"
+    file: str = dir_path + "/bovyrix13kzdata.csv"
 
     surf = np.loadtxt(file, delimiter=",")
     surfrs = surf[:, 2]
@@ -136,7 +143,7 @@ def readClemens(dsinl: float = 0.5 / 8.0,) -> TermVelTuple:
         TermVelTuple(glon, vterm, err)
 
     """
-    file: str = dir_path + "/mwpot14data/clemens1985_table2.dat"
+    file: str = dir_path + "/clemens1985_table2.dat"
 
     data = np.loadtxt(file, delimiter="|", comments="#",)
     glon = data[:, 0]
@@ -182,7 +189,7 @@ def readMcClureGriffiths07(
         TermVelTuple(glon, vterm, err)
 
     """
-    file: str = dir_path + "/mwpot14data/McClureGriffiths2007.dat"
+    file: str = dir_path + "/McClureGriffiths2007.dat"
 
     data = np.loadtxt(file, comments="#")
     glon = data[:, 0]
@@ -205,6 +212,9 @@ def readMcClureGriffiths07(
 # /def
 
 
+# ------------------------------------------------------------------------
+
+
 def readMcClureGriffiths16(
     dsinl: float = 0.5 / 8.0, bin: bool = True
 ) -> TermVelTuple:
@@ -221,7 +231,7 @@ def readMcClureGriffiths16(
         TermVelTuple(glon, vterm, err)
 
     """
-    file: str = dir_path + "/mwpot14data/McClureGriffiths2016.dat"
+    file: str = dir_path + "/McClureGriffiths2016.dat"
 
     data = np.loadtxt(file, comments="#", delimiter="&",)
     glon = data[:, 0]
@@ -244,10 +254,24 @@ def readMcClureGriffiths16(
 # /def
 
 
+# ------------------------------------------------------------------------
+
+
 def readallMcClureGriffiths(
     dsinl: float = 0.5 / 8.0, bin: bool = True
 ) -> Tuple:
+    """Read all data from McClure & Griffiths data readers.
 
+    Parameters
+    ----------
+    dsinl : float
+    bins : bool
+
+    Returns
+    -------
+    tuple
+
+    """
     termdata: tuple = (
         *readMcClureGriffiths07(dsinl=dsinl, bin=bin),
         *readMcClureGriffiths16(dsinl=dsinl, bin=bin),
@@ -255,8 +279,7 @@ def readallMcClureGriffiths(
 
     return termdata
 
-
-# ------------------------------------------------------------------------
+# /def
 
 
 ##############################################################################

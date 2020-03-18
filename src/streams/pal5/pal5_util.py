@@ -23,7 +23,7 @@ setup_sdf
 pal5_dpmguess
 pal5_data_2016
 pal5_data_2019
-pal5_total_data
+pal5_data_total
 
 References
 ----------
@@ -36,12 +36,7 @@ __copyright__ = "Copyright 2016, 2020, "
 __maintainer__ = "Nathaniel Starkman"
 
 __all__ = [
-    # parameters
-    "_RAPAL5",
-    "_DECPAL5",
-    "_TPAL5",
     # functions
-    "radec_to_pal5xieta",
     "width_trailing",
     "vdisp_trailing",
     "timeout_handler",
@@ -50,9 +45,7 @@ __all__ = [
     "pal5_lnlike",
     "setup_sdf",
     "pal5_dpmguess",
-    "pal5_data_2016",
-    "pal5_data_2019",
-    "pal5_total_data",
+    "force_pal5",
 ]
 
 
@@ -64,11 +57,11 @@ __all__ = [
 import copy
 import signal
 import pickle
+from typing import Optional, Union, Sequence, Tuple
+
 import numpy as np
 from tqdm import tqdm
 from scipy import interpolate
-
-from typing import Optional, Union
 
 # CUSTOM
 
@@ -78,36 +71,39 @@ from galpy.orbit import Orbit
 from galpy.df import streamdf
 from galpy.util import bovy_conversion, bovy_coords
 from galpy import potential
+from galpy.potential import Potential
 
 # PROJECT-SPECIFIC
 
-from . import MWPotential2014Likelihood
-from .MWPotential2014Likelihood import _REFR0, _REFV0
+from ... import mw_pot
+from ...mw_pot.utils import REFR0, REFV0
+from ...utils.exceptions import timeout_handler
+
+from . import data, utils
+
+from .data import pal5_data_2016, pal5_data_2019, pal5_data_total
+from .utils import (
+    _RAPAL5,
+    _DECPAL5,
+    _TPAL5,
+    radec_to_pal5xieta,
+)
 
 
 ###############################################################################
 # PARAMETERS
 
-# Coordinate transformation routines
-_RAPAL5 = 229.018 / 180.0 * np.pi
-_DECPAL5 = -0.124 / 180.0 * np.pi
+_REFR0, _REFV0 = REFR0, REFV0
 
-_TPAL5 = np.dot(
-    np.array(
-        [
-            [np.cos(_DECPAL5), 0.0, np.sin(_DECPAL5)],
-            [0.0, 1.0, 0.0],
-            [-np.sin(_DECPAL5), 0.0, np.cos(_DECPAL5)],
-        ]
-    ),
-    np.array(
-        [
-            [np.cos(_RAPAL5), np.sin(_RAPAL5), 0.0],
-            [-np.sin(_RAPAL5), np.cos(_RAPAL5), 0.0],
-            [0.0, 0.0, 1.0],
-        ]
-    ),
-)
+# typing
+PotentialType = Union[Potential, Sequence[Potential]]
+
+
+###############################################################################
+# ALL
+
+__all__ += data.__all__
+__all__ += utils.__all__
 
 
 ###############################################################################
@@ -115,33 +111,39 @@ _TPAL5 = np.dot(
 ###############################################################################
 
 
-@bovy_coords.scalarDecorator
-@bovy_coords.degreeDecorator([0, 1], [0, 1])
-def radec_to_pal5xieta(ra: float, dec: float, degree: bool = False):
-    """Convert ra, dec to Pal 5 coordinate xi, eta.
+def force_pal5(
+    pot: PotentialType, dpal5: float, ro: float = REFR0, vo: float = REFV0
+) -> Tuple[float]:
+    """Return the force at Pal5.
 
     Parameters
     ----------
-    ra: float
-    dec: float
-    degree: bool
-        default False
+    pot: Potential, list
+    dpal5: float
+    ro, vo: float
 
-    Returns
-    -------
-    xieta: ndarray
-        [n, 2] array
+    Return
+    ------
+    force: tuple
+        [fx, fy, fz]
 
     """
-    XYZ = np.array(
-        [np.cos(dec) * np.cos(ra), np.cos(dec) * np.sin(ra), np.sin(dec)]
+    from galpy import potential
+    from galpy.util import bovy_coords
+
+    # First compute the location based on the distance
+    l5, b5 = bovy_coords.radec_to_lb(229.018, -0.124, degree=True)
+    X5, Y5, Z5 = bovy_coords.lbd_to_XYZ(l5, b5, dpal5, degree=True)
+    R5, p5, Z5 = bovy_coords.XYZ_to_galcencyl(X5, Y5, Z5, Xsun=ro, Zsun=0.025)
+
+    args: list = [pot, R5 / ro, Z5 / ro]
+    kws: dict = {"phi": p5, "use_physical": True, "ro": ro, "vo": vo}
+
+    return (
+        potential.evaluateRforces(*args, **kws),
+        potential.evaluatezforces(*args, **kws),
+        potential.evaluatephiforces(*args, **kws),
     )
-
-    phiXYZ = np.dot(_TPAL5, XYZ)
-    eta = np.arcsin(phiXYZ[2])
-    xi = np.arctan2(phiXYZ[1], phiXYZ[0])
-
-    return np.array([xi, eta]).T
 
 
 # /def
@@ -150,7 +152,7 @@ def radec_to_pal5xieta(ra: float, dec: float, degree: bool = False):
 # ----------------------------------------------------------------------------
 
 
-def width_trailing(sdf):
+def width_trailing(sdf) -> float:
     """Return the FWHM width in arcmin for the trailing tail.
 
     Parameters
@@ -178,8 +180,7 @@ def width_trailing(sdf):
         xy = [sdf._interpolatedObsTrackLB[cc, 0], None, None, None, None, None]
         ws[ii] = np.sqrt(sdf.gaussApprox(xy=xy, lb=True, cindx=cc)[1][0, 0])
 
-    width = 2.355 * 60.0 * np.mean(ws)
-    return width
+    return 2.355 * 60.0 * np.mean(ws)
 
 
 # /def
@@ -188,7 +189,7 @@ def width_trailing(sdf):
 # ----------------------------------------------------------------------------
 
 
-def vdisp_trailing(sdf):
+def vdisp_trailing(sdf) -> float:
     """Return the velocity dispersion in km/s for the trailing tail.
 
     Parameters
@@ -221,15 +222,6 @@ def vdisp_trailing(sdf):
 
 # /def
 
-# ----------------------------------------------------------------------------
-
-
-def timeout_handler(signum, frame):
-    """timeout_handler."""
-    raise Exception("Calculation timed-out")
-
-
-# /def
 
 # ----------------------------------------------------------------------------
 
@@ -245,8 +237,8 @@ def predict_pal5obs(
     pmra: float = -2.296,
     pmdec: float = -2.257,
     vlos: float = -58.7,
-    ro: float = _REFR0,
-    vo: float = _REFV0,
+    ro: float = REFR0,
+    vo: float = REFV0,
     singlec: bool = False,
     interpcs: Optional[float] = None,
     interpk: Optional[float] = None,
@@ -256,7 +248,7 @@ def predict_pal5obs(
     trailing_only: bool = False,
     useTM: bool = False,
     verbose: bool = True,
-):
+) -> Tuple:
     """Predict Pal 5 Observed.
 
     Function that generates the location and velocity of the Pal 5 stream,
@@ -333,6 +325,8 @@ def predict_pal5obs(
     success : bool
 
     """
+    from ...mw_pot import MWPotential2014Likelihood
+
     # First compute the model for all cs at which we will interpolate
     interpcs: list
     if singlec:
@@ -581,7 +575,7 @@ def predict_pal5obs(
 # ----------------------------------------------------------------------------
 
 
-def looks_funny(tsdf_trailing, tsdf_leading):
+def looks_funny(tsdf_trailing, tsdf_leading) -> bool:
     """looks funny.
 
     Parameters
@@ -664,7 +658,7 @@ def pal5_lnlike(
     length_out,
     interpcs,
     trailing_only=False,
-):  # last one so we can do *args
+) -> Sequence:  # last one so we can do *args
     """Pal 5 Ln-like.
 
     Returns array [nmodel,5] with log likelihood for each
@@ -738,9 +732,11 @@ def pal5_lnlike(
         )
         out[nn, 3] = width_out[nn]
         out[nn, 4] = length_out[nn]
+
     out[np.isnan(out[:, 0]), 0] = -1e18
     out[np.isnan(out[:, 1]), 1] = -1e18
     out[np.isnan(out[:, 2]), 2] = -1e18
+
     return out
 
 
@@ -751,12 +747,12 @@ def pal5_lnlike(
 
 def setup_sdf(
     pot: potential.Potential,
-    prog,
-    sigv,
-    td,
-    ro,
-    vo,
-    multi=None,
+    prog: Orbit,
+    sigv: float,
+    td: float,
+    ro: float = REFR0,
+    vo: float = REFV0,
+    multi: Optional[bool] = None,
     nTrackChunks: float = 8,
     isob=None,
     trailing_only: bool = False,
@@ -891,7 +887,7 @@ def setup_sdf(
 
 
 def pal5_dpmguess(
-    pot,
+    pot: PotentialType,
     doras=None,
     dodecs=None,
     dovloss=None,
@@ -902,8 +898,8 @@ def pal5_dpmguess(
     pmmax=0.36,
     pmstep=0.01,
     alongbfpm=False,
-    ro=_REFR0,
-    vo=_REFV0,
+    ro=REFR0,
+    vo=REFV0,
 ):
     """pal5_dpmguess.
 
@@ -931,9 +927,9 @@ def pal5_dpmguess(
     alongbfpm : float or None, optional
         default False
     ro : float or None, optional
-        default _REFR0
+        default REFR0
     vo : float or None, optional
-        default _REFV0
+        default REFV0
 
     Returns
     -------
@@ -953,7 +949,7 @@ def pal5_dpmguess(
     ds = np.arange(dmin, dmax + dstep / 2.0, dstep)
     pmoffs = np.arange(pmmin, pmmax + pmstep / 2.0, pmstep)
     lnl = np.zeros((len(ds), len(pmoffs)))
-    pos_radec, rvel_ra = pal5_total_data()
+    pos_radec, rvel_ra = pal5_data_total()
 
     print("Determining good distance and parallel proper motion...")
 
@@ -1027,180 +1023,6 @@ def pal5_dpmguess(
         bestpmoff = pmoffs[np.unravel_index(np.argmax(lnl), lnl.shape)[1]]
 
     return bestd, bestpmoff, lnl, ds, pmoffs
-
-
-# /def
-
-
-# ----------------------------------------------------------------------------
-
-
-def pal5_data_2016():
-    """Palomar 5 Data.
-
-    Returns
-    -------
-    pos_radec: [n, 3] array
-    rvel_ra: [n, 3] array
-
-    """
-    pos_radec = np.array(
-        [
-            [241.48, 6.41, 0.09],
-            [240.98, 6.15, 0.09],
-            [240.48, 6.20, 0.09],
-            [239.98, 5.81, 0.09],
-            [239.48, 5.64, 0.09],
-            [238.48, 5.38, 0.09],
-            [237.98, 5.14, 0.09],
-            [233.61, 3.17, 0.06],
-            [233.11, 2.88, 0.06],
-            [232.61, 2.54, 0.06],
-            [232.11, 2.23, 0.06],
-            [231.61, 2.04, 0.06],
-            [231.11, 1.56, 0.06],
-            [230.11, 0.85, 0.06],
-            [229.61, 0.54, 0.06],
-            [228.48, -0.77, 0.11],
-            [228.11, -1.16, 0.14],
-            [227.73, -1.28, 0.11],
-            [227.23, -2.03, 0.17],
-            [226.55, -2.59, 0.14],
-        ]
-    )
-    rvel_ra = np.array(
-        [
-            [225 + 15 * 15 / 60 + 48.19 * 0.25 / 60, -55.9, 1.2],
-            [225 + 15 * 15 / 60 + 49.70 * 0.25 / 60, -56.9, 0.4],
-            [225 + 15 * 15 / 60 + 52.60 * 0.25 / 60, -56.0, 0.6],
-            [225 + 15 * 15 / 60 + 54.79 * 0.25 / 60, -57.6, 1.6],
-            [225 + 15 * 15 / 60 + 56.11 * 0.25 / 60, -57.9, 0.7],
-            [225 + 15 * 15 / 60 + 57.05 * 0.25 / 60, -55.6, 1.5],
-            [225 + 15 * 15 / 60 + 58.26 * 0.25 / 60, -56.4, 1.0],
-            [225 + 15 * 15 / 60 + 58.89 * 0.25 / 60, -55.9, 0.3],
-            [225 + 15 * 15 / 60 + 59.52 * 0.25 / 60, -59.0, 0.4],
-            [225 + 16 * 15 / 60 + 02.00 * 0.25 / 60, -58.0, 0.8],
-            [225 + 16 * 15 / 60 + 03.61 * 0.25 / 60, -57.7, 2.5],
-            [225 + 16 * 15 / 60 + 04.81 * 0.25 / 60, -57.2, 2.7],
-            [225 + 16 * 15 / 60 + 06.54 * 0.25 / 60, -57.1, 0.2],
-            [225 + 16 * 15 / 60 + 07.75 * 0.25 / 60, -60.6, 0.3],
-            [225 + 16 * 15 / 60 + 08.51 * 0.25 / 60, -60.9, 3.3],
-            [225 + 16 * 15 / 60 + 19.83 * 0.25 / 60, -56.9, 1.0],
-            [225 + 16 * 15 / 60 + 23.11 * 0.25 / 60, -58.0, 2.5],
-            [225 + 16 * 15 / 60 + 34.71 * 0.25 / 60, -58.2, 3.8],
-            [225 + 16 * 15 / 60 + 08.66 * 0.25 / 60, -56.8, 0.7],
-            [225 + 16 * 15 / 60 + 09.58 * 0.25 / 60, -57.7, 0.3],
-            [225 + 15 * 15 / 60 + 52.84 * 0.25 / 60, -55.7, 0.6],
-            [225 + 15 * 15 / 60 + 56.21 * 0.25 / 60, -55.9, 0.7],
-            [225 + 16 * 15 / 60 + 05.26 * 0.25 / 60, -54.3, 0.3],
-            [225 + 17 * 15 / 60 + 09.99 * 0.25 / 60, -57.0, 0.4],
-            [225 + 17 * 15 / 60 + 34.55 * 0.25 / 60, -56.5, 3.1],
-            [225 + 17 * 15 / 60 + 58.32 * 0.25 / 60, -57.5, 3.3],
-            [225 + 18 * 15 / 60 + 04.96 * 0.25 / 60, -57.7, 2.6],
-            [225 + 18 * 15 / 60 + 18.92 * 0.25 / 60, -57.6, 3.6],
-            [225 + 18 * 15 / 60 + 35.89 * 0.25 / 60, -56.7, 1.3],
-            [225 + 19 * 15 / 60 + 21.42 * 0.25 / 60, -61.7, 3.1],
-            [225 + 21 * 15 / 60 + 51.16 * 0.25 / 60, -55.6, 0.4],
-            [225 + 24 * 15 / 60 + 04.85 * 0.25 / 60, -56.5, 2.6],
-            [225 + 24 * 15 / 60 + 13.00 * 0.25 / 60, -50.0, 2.4],
-            [225 + 28 * 15 / 60 + 39.20 * 0.25 / 60, -56.6, 1.4],
-            [225 + 28 * 15 / 60 + 49.34 * 0.25 / 60, -52.4, 3.8],
-            [225 + 34 * 15 / 60 + 19.31 * 0.25 / 60, -55.8, 1.8],
-            [225 + 34 * 15 / 60 + 31.90 * 0.25 / 60, -52.7, 4.0],
-            [225 + 34 * 15 / 60 + 56.51 * 0.25 / 60, -51.9, 1.6],
-            [225 + 45 * 15 / 60 + 10.57 * 0.25 / 60, -45.6, 2.6],
-            [225 + 46 * 15 / 60 + 49.44 * 0.25 / 60, -48.0, 2.4],
-            [225 + 48 * 15 / 60 + 57.99 * 0.25 / 60, -46.7, 2.3],
-            [225 + 55 * 15 / 60 + 24.13 * 0.25 / 60, -41.0, 2.7],
-            [240 + 0 * 15 / 60 + 45.41 * 0.25 / 60, -41.1, 2.8],
-            [240 + 1 * 15 / 60 + 12.59 * 0.25 / 60, -40.8, 2.5],
-            [240 + 3 * 15 / 60 + 29.59 * 0.25 / 60, -45.2, 3.9],
-            [240 + 4 * 15 / 60 + 05.53 * 0.25 / 60, -44.9, 4.0],
-            [240 + 4 * 15 / 60 + 33.28 * 0.25 / 60, -45.1, 3.5],
-            [240 + 13 * 15 / 60 + 40.97 * 0.25 / 60, -41.1, 3.4],
-            [240 + 16 * 15 / 60 + 44.79 * 0.25 / 60, -44.0, 3.0],
-            [240 + 16 * 15 / 60 + 51.73 * 0.25 / 60, -43.5, 2.5],
-            [225 + 8 * 15 / 60 + 07.15 * 0.25 / 60, -57.8, 1.1],
-            [225 + 8 * 15 / 60 + 17.50 * 0.25 / 60, -62.0, 2.3],
-            [225 + 10 * 15 / 60 + 39.02 * 0.25 / 60, -58.0, 1.0],
-            [225 + 11 * 15 / 60 + 09.04 * 0.25 / 60, -66.9, 2.1],
-            [225 + 11 * 15 / 60 + 21.70 * 0.25 / 60, -53.8, 1.1],
-            [225 + 12 * 15 / 60 + 45.44 * 0.25 / 60, -52.5, 2.2],
-            [225 + 13 * 15 / 60 + 40.44 * 0.25 / 60, -58.6, 1.4],
-            [225 + 13 * 15 / 60 + 54.40 * 0.25 / 60, -59.8, 3.7],
-            [225 + 14 * 15 / 60 + 09.32 * 0.25 / 60, -57.9, 3.5],
-            [225 + 14 * 15 / 60 + 17.18 * 0.25 / 60, -59.2, 1.7],
-            [225 + 14 * 15 / 60 + 20.71 * 0.25 / 60, -56.7, 2.3],
-            [225 + 14 * 15 / 60 + 34.63 * 0.25 / 60, -59.1, 1.3],
-            [225 + 15 * 15 / 60 + 16.47 * 0.25 / 60, -58.6, 2.3],
-            [225 + 15 * 15 / 60 + 50.43 * 0.25 / 60, -55.7, 2.3],
-            [225 + 16 * 15 / 60 + 01.54 * 0.25 / 60, -58.7, 1.4],
-            [225 + 16 * 15 / 60 + 34.95 * 0.25 / 60, -59.7, 0.4],
-            [225 + 16 * 15 / 60 + 56.20 * 0.25 / 60, -58.7, 0.2],
-        ]
-    )
-    return pos_radec, rvel_ra
-
-
-# /def
-
-
-# ----------------------------------------------------------------------------
-
-
-def pal5_data_2019():
-    """pal5_data_2016 + added measurements.
-
-    These measurements are averages of the results from Starkman et al (2019)
-    The errors are taken as the maximum of the ra, dec errors for each bin
-
-    Returns
-    -------
-    pos_radec: ndarray
-    rvel_ra: ndarray
-
-    """
-    pos_radec = np.array(
-        [
-            [223.51, -6.36, 0.224],
-            [222.86, -7.40, 0.318],
-            [222.47, -8.43, 0.437],
-            [222.01, -9.00, 0.286],
-            [221.58, -10.27, 0.248],
-            [221.10, -11.47, 0.214],
-            [220.60, -11.44, 0.255],
-        ]
-    )
-
-    rvel_ra = np.empty((1, 3))
-
-    return pos_radec, rvel_ra
-
-
-# /def
-
-
-# ----------------------------------------------------------------------------
-
-
-def pal5_total_data():
-    """pal5_data_2016 + added measurements.
-
-    Returns
-    -------
-    pos_radec : ndarray
-    rvel_ra : ndarray
-
-    """
-    # read data
-    pos_radec_2016, rvel_ra_2016 = pal5_data_2016()
-    pos_radec_2019, rvel_ra_2019 = pal5_data_2019()
-
-    # concatenate
-    pos_radec = np.vstack([pos_radec_2016, pos_radec_2019])
-    rvel_ra = np.vstack([rvel_ra_2016, rvel_ra_2019])
-
-    return pos_radec, rvel_ra
 
 
 # /def
