@@ -41,10 +41,19 @@ from galpy.util import (
     save_pickles,
 )  # bovy_conversion
 
-# CUSTOM
 
 # PROJECT-SPECIFIC
-import script_util as su
+
+# fmt: off
+import sys; sys.path.insert(0, "../../../")
+# fmt: on
+from pal5_constrain_mwhalo_shape.mw_pot import (
+    fit as fit_pot,
+    sample as sample_pot,
+    sample_multi as sample_pot_multi,
+    plot_samples,
+)
+import pal5_constrain_mwhalo_shape.scripts.create_MW_potential_2014.script_util as su
 
 
 ###############################################################################
@@ -65,8 +74,14 @@ save_figures = False  # TODO needs papers-directory
 ###############################################################################
 
 
-def make_parser(add_help=True):
+def make_parser(inheritable=False):
     """Make ArgumentParser for fit_mwpot_dblexp_script.
+
+    Parameters
+    ----------
+    inheritable: bool
+        whether the parser can be inherited from (default False).
+        if True, sets ``add_help=False`` and ``conflict_hander='resolve'``
 
     Returns
     -------
@@ -77,7 +92,8 @@ def make_parser(add_help=True):
     parser = argparse.ArgumentParser(
         prog="fit_mwpot_dblexp_script",
         description="Fit MW potential with double-exponential disk.",
-        add_help=add_help,
+        add_help=~inheritable,
+        conflict_handler="resolve" if ~inheritable else "error",
     )
     parser.add_argument(
         "-f",
@@ -92,7 +108,7 @@ def make_parser(add_help=True):
         "--output",
         default="output/",
         type=str,
-        help="figure save folder",
+        help="output save folder",
         dest="opath",
     )
 
@@ -102,9 +118,10 @@ def make_parser(add_help=True):
 # /def
 
 
-def main(
-    args: Optional[list] = None, opts: Optional[argparse.Namespace] = None
-):
+# -------------------------------------------------------------------
+
+
+def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None):
     """Fit MWPotential with Double-Exponential Disk Script Function.
 
     Parameters
@@ -130,44 +147,26 @@ def main(
     # $c=1$:
 
     plt.figure(figsize=(16, 5))
-    p_exp = su.fit(
-        fitc=False,
-        c=1.0,
-        dblexp=True,
-        plots=fpath + "Clemens-c_1.pdf",
-    )
+    p_exp = fit_pot(fitc=False, c=1.0, dblexp=True, plots=fpath + "Clemens-c_1.pdf",)
 
     # -----------------------
     # $c=0.5$:
 
     plt.figure(figsize=(16, 5))
-    p_exp = su.fit(
-        fitc=False,
-        c=0.5,
-        dblexp=True,
-        plots=fpath + "Clemens-c_0p5.pdf",
-    )
+    p_exp = fit_pot(fitc=False, c=0.5, dblexp=True, plots=fpath + "Clemens-c_0p5.pdf",)
 
     # -----------------------
     # $c=1.5$:
 
     plt.figure(figsize=(16, 5))
-    p_exp = su.fit(
-        fitc=False,
-        c=1.5,
-        dblexp=True,
-        plots=fpath + "Clemens-c_1p5.pdf",
-    )
+    p_exp = fit_pot(fitc=False, c=1.5, dblexp=True, plots=fpath + "Clemens-c_1p5.pdf",)
 
     # -----------------------
     # leave c free
 
     plt.figure(figsize=(16, 5))
-    p_exp_cfree = su.fit(
-        fitc=True,
-        c=None,
-        dblexp=True,
-        plots=fpath + "Clemens-c_free.pdf",
+    p_exp_cfree = fit_pot(
+        fitc=True, c=None, dblexp=True, plots=fpath + "Clemens-c_free.pdf",
     )
 
     # -----------------------
@@ -181,7 +180,7 @@ def main(
         cs = np.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
-            dum = su.fit(
+            dum = fit_pot(
                 fitc=False,
                 c=c,
                 dblexp=True,
@@ -197,7 +196,7 @@ def main(
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
     else:
-        s = su.sample(
+        s = sample_pot(
             nsamples=100000,
             params=p_exp_cfree[0],
             fitc=True,
@@ -210,11 +209,8 @@ def main(
     # -----------------------
 
     plt.figure()
-    su.plot_samples(
-        s,
-        True,
-        False,
-        savefig=fpath + "varyc-dblexp-samples-corner.pdf",
+    plot_samples(
+        s, True, False, savefig=fpath + "varyc-dblexp-samples-corner.pdf",
     )
 
     # -----------------------
@@ -227,11 +223,7 @@ def main(
         ytick_labelsize=15.0,
     )
     su.plot_mcmc_c(
-        s,
-        False,
-        cs,
-        bf_params,
-        savefig=fpath + "varyc-dblexp-samples-dependence.pdf",
+        s, False, cs, bf_params, savefig=fpath + "varyc-dblexp-samples-dependence.pdf",
     )
 
     # -----------------------
@@ -260,7 +252,7 @@ def main(
     # Also fitting $R_0$ and $V_c(R_0)$
 
     plt.figure(figsize=(16, 5))
-    p_exp_cfree_voro = su.fit(
+    p_exp_cfree_voro = fit_pot(
         fitc=True,
         c=None,
         dblexp=True,
@@ -275,7 +267,7 @@ def main(
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
     else:
-        s = su.sample(
+        s = sample_pot(
             nsamples=100000,
             params=p_exp_cfree_voro[0],
             fitc=True,
@@ -289,11 +281,8 @@ def main(
     # -----------------------
 
     plt.figure()
-    su.plot_samples(
-        s,
-        True,
-        True,
-        savefig=fpath + "varyc-dblexp-fitvoro-samples-corner.pdf",
+    plot_samples(
+        s, True, True, savefig=fpath + "varyc-dblexp-fitvoro-samples-corner.pdf",
     )
 
     # -----------------------
@@ -333,15 +322,13 @@ def main(
             sortedc[int(np.floor(0.005 * len(sortedc)))],
         )
     )
-    plt.savefig(
-        fpath + "varyc-dblexp-fitvoro-samples-samples-shape_hist.pdf"
-    )
+    plt.savefig(fpath + "varyc-dblexp-fitvoro-samples-samples-shape_hist.pdf")
 
     # -----------------------
     # Also adding in a gas disk (and still also fitting $R_0$ and $V_c(R_0)$)
 
     plt.figure(figsize=(16, 5))
-    p_exp_cfree_voro_wgas = su.fit(
+    p_exp_cfree_voro_wgas = fit_pot(
         fitc=True,
         c=None,
         dblexp=True,
@@ -357,7 +344,7 @@ def main(
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
     else:
-        s = su.sample_multi(
+        s = sample_pot_multi(
             nsamples=100000,
             params=p_exp_cfree_voro_wgas[0],
             fitc=True,
@@ -372,11 +359,8 @@ def main(
     # -----------------------
 
     plt.figure()
-    su.plot_samples(
-        s,
-        True,
-        True,
-        savefig=fpath + "varyc-dblexp-fitvoro-addgas-samples-corner.pdf",
+    plot_samples(
+        s, True, True, savefig=fpath + "varyc-dblexp-fitvoro-addgas-samples-corner.pdf",
     )
 
     # -----------------------
@@ -416,9 +400,7 @@ def main(
             sortedc[int(np.floor(0.005 * len(sortedc)))],
         )
     )
-    plt.savefig(
-        fpath + "varyc-dblexp-fitvoro-addgas-samples-shape_hist.pdf"
-    )
+    plt.savefig(fpath + "varyc-dblexp-fitvoro-addgas-samples-shape_hist.pdf")
 
 
 # /def

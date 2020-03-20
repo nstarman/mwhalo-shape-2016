@@ -32,7 +32,10 @@ plot_mcmc_c
 __author__ = "Jo Bovy"
 __maintainer__ = "Nathaniel Starkman"
 
-__all__ = ["main"]
+__all__ = [
+    "make_parser",
+    "main",
+]
 
 
 ###############################################################################
@@ -41,7 +44,6 @@ __all__ = ["main"]
 # GENERAL
 import os
 import os.path
-import sys
 import argparse
 import pickle
 import numpy as np
@@ -59,10 +61,20 @@ from galpy.util import (
     save_pickles,
 )
 
-from typing import Union, Optional
+from typing import Optional
 
 # PROJECT-SPECIFIC
-import script_util as su
+
+# fmt: off
+import sys; sys.path.insert(0, "../../../")
+# fmt: on
+from pal5_constrain_mwhalo_shape.mw_pot import (
+    fit as fit_pot,
+    sample as sample_pot,
+    sample_multi as sample_pot_multi,
+    plot_samples,
+)
+import pal5_constrain_mwhalo_shape.scripts.create_MW_potential_2014.script_util as su
 
 
 ###############################################################################
@@ -83,8 +95,14 @@ save_figures = False  # TODO needs papers-directory
 ###############################################################################
 
 
-def make_parser(add_help=True):
+def make_parser(inheritable=False):
     """Make ArgumentParser for fit_mwpot15_script.
+
+    Parameters
+    ----------
+    inheritable: bool
+        whether the parser can be inherited from (default False).
+        if True, sets ``add_help=False`` and ``conflict_hander='resolve'``
 
     Returns
     -------
@@ -95,7 +113,8 @@ def make_parser(add_help=True):
     parser = argparse.ArgumentParser(
         prog="fit_mwpot15_script",
         description="Fit basic MWPotential2014",
-        add_help=add_help,
+        add_help=~inheritable,
+        conflict_handler="resolve" if ~inheritable else "error",
     )
     parser.add_argument(
         "-f",
@@ -110,7 +129,7 @@ def make_parser(add_help=True):
         "--output",
         default="output/",
         type=str,
-        help="figure save folder",
+        help="output save folder",
         dest="opath",
     )
 
@@ -123,9 +142,7 @@ def make_parser(add_help=True):
 # ------------------------------------------------------------------------
 
 
-def main(
-    args: Optional[list] = None, opts: Optional[argparse.Namespace] = None
-):
+def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None):
     """Fit MWPotential2014 Script Function.
 
     Parameters
@@ -151,15 +168,15 @@ def main(
     # Using the Clemens CO terminal-velocity data:
 
     plt.figure(figsize=(16, 5))
-    p_b15 = su.fit(fitc=False, c=1.0, plots=fpath + "Clemens-c_1.pdf")
+    p_b15 = fit_pot(fitc=False, c=1.0, plots=fpath + "Clemens-c_1.pdf")
+    plt.close()
 
     # -----------------------
     # Using the McClure-Griffiths & Dickey HI terminal-velocity data instead
 
     plt.figure(figsize=(16, 5))
-    p_b15_mc16 = su.fit(
-        fitc=False, c=1.0, mc16=True, plots=fpath + "McClure-c_1.pdf"
-    )
+    p_b15_mc16 = fit_pot(fitc=False, c=1.0, mc16=True, plots=fpath + "McClure-c_1.pdf")
+    plt.close()
 
     # We ran the initial analysis with Clemens, which we keep here, until we
     # start interpreting the Pal 5 and GD-1 data; then we switch to the
@@ -172,12 +189,13 @@ def main(
     # -----------------------
 
     plt.figure(figsize=(16, 5))
-    p_b15_cp5 = su.fit(fitc=False, c=0.5, plots=fpath + "Clemens-c_0p5.pdf")
+    p_b15_cp5 = fit_pot(fitc=False, c=0.5, plots=fpath + "Clemens-c_0p5.pdf")
+    plt.close()
 
     # -----------------------
 
     plt.figure(figsize=(16, 5))
-    p_b15_c1p5 = su.fit(fitc=False, c=1.5, plots=fpath + "Clemens-c_1p5.pdf")
+    p_b15_c1p5 = fit_pot(fitc=False, c=1.5, plots=fpath + "Clemens-c_1p5.pdf")
 
     # All look pretty similar...
 
@@ -192,9 +210,7 @@ def main(
         cs = np.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
-            dum = su.fit(
-                fitc=False, c=c, plots=fpath + "mwpot14varyc-bf-fit.pdf",
-            )
+            dum = fit_pot(fitc=False, c=c, plots=fpath + "mwpot14varyc-bf-fit.pdf",)
             bf_params.append(dum[0])
         save_pickles(bf_savefilename, cs, bf_params)
 
@@ -202,7 +218,7 @@ def main(
     # Fits with free $c$
 
     plt.figure(figsize=(16, 5))
-    p_b15_cfree = su.fit(fitc=True, c=None, plots=fpath + "Clemens-c_free.pdf")
+    p_b15_cfree = fit_pot(fitc=True, c=None, plots=fpath + "Clemens-c_free.pdf")
 
     # -----------------------
 
@@ -211,7 +227,7 @@ def main(
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
     else:
-        s = su.sample(
+        s = sample_pot(
             nsamples=100000,
             params=p_b15_cfree[0],
             fitc=True,
@@ -224,7 +240,7 @@ def main(
     # -----------------------
 
     plt.figure()
-    su.plot_samples(s, True, False, savefig=fpath + "varyc-samples-corner.pdf")
+    plot_samples(s, True, False, savefig=fpath + "varyc-samples-corner.pdf")
 
     # -----------------------
 
@@ -235,11 +251,7 @@ def main(
         ytick_labelsize=15.0,
     )
     su.plot_mcmc_c(
-        s,
-        False,
-        cs,
-        bf_params,
-        savefig=fpath + "varyc-samples-dependence.pdf",
+        s, False, cs, bf_params, savefig=fpath + "varyc-samples-dependence.pdf",
     )
 
     # -----------------------
@@ -268,11 +280,8 @@ def main(
     # Also fitting $R_0$ and $V_c(R_0)$
 
     plt.figure(figsize=(16, 5))
-    p_b15_voro = su.fit(
-        fitc=True,
-        c=None,
-        fitvoro=True,
-        plots=fpath + "varyc-fitvoro-samples.pdf",
+    p_b15_voro = fit_pot(
+        fitc=True, c=None, fitvoro=True, plots=fpath + "varyc-fitvoro-samples.pdf",
     )
 
     # -----------------------
@@ -282,7 +291,7 @@ def main(
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
     else:
-        s = su.sample(
+        s = sample_pot(
             nsamples=100000,
             params=p_b15_voro[0],
             fitc=True,
@@ -295,7 +304,7 @@ def main(
     # -----------------------
 
     plt.figure()
-    su.plot_samples(
+    plot_samples(
         s, True, True, savefig=fpath + "varyc-fitvoro-samples-corner.pdf",
     )
 
@@ -320,9 +329,7 @@ def main(
     if save_figures:
         plt.savefig(
             os.path.join(
-                os.getenv("PAPERSDIR"),
-                "2016-mwhalo-shape",
-                "mwpot14-varyc.pdf",
+                os.getenv("PAPERSDIR"), "2016-mwhalo-shape", "mwpot14-varyc.pdf",
             ),
             bbox_inches="tight",
         )
@@ -355,9 +362,10 @@ def main(
 
 # ------------------------------------------------------------------------
 
+
 if __name__ == "__main__":
 
-    main(sys.argv[1:])
+    main(args=None, opts=None)
 
 # /if
 

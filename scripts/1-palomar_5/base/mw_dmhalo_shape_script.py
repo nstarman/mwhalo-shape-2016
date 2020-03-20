@@ -54,8 +54,8 @@ from matplotlib.cbook import MatplotlibDeprecationWarning
 # fmt: off
 import sys; sys.path.insert(0, '../../')
 # fmt: on
-from src import MWPotential2014Likelihood
-from src import pal5_util
+from pal5_constrain_mwhalo_shape.mw_pot import MWPotential2014Likelihood
+from pal5_constrain_mwhalo_shape.streams.pal5 import pal5_util
 
 
 ###############################################################################
@@ -69,10 +69,10 @@ cmap = cm.plasma
 
 warnings.filterwarnings("ignore", category=MatplotlibDeprecationWarning)
 
-_REFR0 = MWPotential2014Likelihood._REFR0
-_REFV0 = MWPotential2014Likelihood._REFV0
+REFR0 = MWPotential2014Likelihood.REFR0
+REFV0 = MWPotential2014Likelihood.REFV0
 
-pos_radec, rvel_ra = pal5_util.pal5_total_data()
+pos_radec, rvel_ra = pal5_util.pal5_data_total()
 
 
 ###############################################################################
@@ -157,9 +157,7 @@ def add_colorbar(vmin, vmax, clabel, save_figures=False):
     else:
         fig.subplots_adjust(right=0.95)
         cbar_ax = fig.add_axes([0.975, 0.13, 0.025, 0.78])
-    sm = plt.cm.ScalarMappable(
-        cmap=cmap, norm=plt.Normalize(vmin=vmin, vmax=vmax)
-    )
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=vmin, vmax=vmax))
     sm._A = []
     cbar = fig.colorbar(sm, cax=cbar_ax, use_gridspec=True, format=r"$%.1f$")
     cbar.set_label(clabel)
@@ -191,14 +189,14 @@ if __name__ == "__main__":
     ]
 
     pot = MWPotential2014Likelihood.setup_potential(
-        p_b15, 1.0, False, False, _REFR0, _REFV0
+        p_b15, 1.0, False, False, REFR0, REFV0
     )
 
     prog = Orbit(
         [229.018, -0.124, 23.2, -2.296, -2.257, -58.7],
         radec=True,
-        ro=_REFR0,
-        vo=_REFV0,
+        ro=REFR0,
+        vo=REFV0,
         solarmotion=[-11.1, 24.0, 7.25],
     )
     aAI = actionAngleIsochroneApprox(pot=pot, b=0.8)
@@ -211,17 +209,17 @@ if __name__ == "__main__":
             sdf_trailing = pickle.load(file)
     except Exception:
         sdf_trailing = streamdf(
-            sigv / _REFV0,
+            sigv / REFV0,
             progenitor=prog,
             pot=pot,
             aA=aAI,
             leading=False,
             nTrackChunks=11,
-            tdisrupt=10.0 / bovy_conversion.time_in_Gyr(_REFV0, _REFR0),
-            ro=_REFR0,
-            vo=_REFV0,
-            R0=_REFR0,
-            vsun=[-11.1, _REFV0 + 24.0, 7.25],
+            tdisrupt=10.0 / bovy_conversion.time_in_Gyr(REFV0, REFR0),
+            ro=REFR0,
+            vo=REFV0,
+            R0=REFR0,
+            vsun=[-11.1, REFV0 + 24.0, 7.25],
             custom_transform=pal5_util._TPAL5,
         )
         with open("output/sdf_trailing.pkl", "wb") as file:
@@ -232,17 +230,17 @@ if __name__ == "__main__":
             sdf_leading = pickle.load(file)
     except Exception:
         sdf_leading = streamdf(
-            sigv / _REFV0,
+            sigv / REFV0,
             progenitor=prog,
             pot=pot,
             aA=aAI,
             leading=True,
             nTrackChunks=11,
-            tdisrupt=10.0 / bovy_conversion.time_in_Gyr(_REFV0, _REFR0),
-            ro=_REFR0,
-            vo=_REFV0,
-            R0=_REFR0,
-            vsun=[-11.1, _REFV0 + 24.0, 7.25],
+            tdisrupt=10.0 / bovy_conversion.time_in_Gyr(REFV0, REFR0),
+            ro=REFR0,
+            vo=REFV0,
+            R0=REFR0,
+            vsun=[-11.1, REFV0 + 24.0, 7.25],
             custom_transform=pal5_util._TPAL5,
         )
         with open("output/sdf_leading.pkl", "wb") as file:
@@ -255,22 +253,13 @@ if __name__ == "__main__":
         "Angular length: %f deg (leading,trailing)=(%f,%f) deg"
         % (
             sdf_leading.length(ang=True, coord="customra", threshold=threshold)
-            + sdf_trailing.length(
-                ang=True, coord="customra", threshold=threshold
-            ),
-            sdf_leading.length(
-                ang=True, coord="customra", threshold=threshold
-            ),
-            sdf_trailing.length(
-                ang=True, coord="customra", threshold=threshold
-            ),
+            + sdf_trailing.length(ang=True, coord="customra", threshold=threshold),
+            sdf_leading.length(ang=True, coord="customra", threshold=threshold),
+            sdf_trailing.length(ang=True, coord="customra", threshold=threshold),
         )
     )
     print("Angular width (FWHM): %f arcmin" % (width_trailing(sdf_trailing)))
-    print(
-        "Velocity dispersion: %f km/s"
-        % (pal5_util.vdisp_trailing(sdf_trailing))
-    )
+    print("Velocity dispersion: %f km/s" % (pal5_util.vdisp_trailing(sdf_trailing)))
 
     # ----------------------------------------------------------
 
@@ -353,18 +342,10 @@ if __name__ == "__main__":
         overplot=True,
     )
     plt.plot(
-        radec_sample_trailing[:, 0],
-        lb_sample_trailing[3],
-        "k.",
-        alpha=0.01,
-        zorder=0,
+        radec_sample_trailing[:, 0], lb_sample_trailing[3], "k.", alpha=0.01, zorder=0,
     )
     plt.plot(
-        radec_sample_leading[:, 0],
-        lb_sample_leading[3],
-        "k.",
-        alpha=0.01,
-        zorder=0,
+        radec_sample_leading[:, 0], lb_sample_leading[3], "k.", alpha=0.01, zorder=0,
     )
     plt.errorbar(
         rvel_ra[:, 0],
@@ -404,13 +385,13 @@ if __name__ == "__main__":
 
     for bp, c in zip(bf_params, cs):
         pot = MWPotential2014Likelihood.setup_potential(
-            bp, c, False, False, _REFR0, _REFV0
+            bp, c, False, False, REFR0, REFV0
         )
         prog = Orbit(
             [229.018, -0.124, 23.2, -2.296, -2.257, -58.7],
             radec=True,
-            ro=_REFR0,
-            vo=_REFV0,
+            ro=REFR0,
+            vo=REFV0,
             solarmotion=[-11.1, 24.0, 7.25],
         )
         prog.integrate(times, pot)
@@ -418,8 +399,8 @@ if __name__ == "__main__":
         prog = Orbit(
             [229.018, -0.124, 23.2, -2.296, -2.257, -58.7],
             radec=True,
-            ro=_REFR0,
-            vo=_REFV0,
+            ro=REFR0,
+            vo=REFV0,
             solarmotion=[-11.1, 24.0, 7.25],
         ).flip()
         prog.integrate(times, pot)
@@ -463,13 +444,13 @@ if __name__ == "__main__":
 
     for b in bs:
         pot = MWPotential2014Likelihood.setup_potential(
-            p_b15, 1.0, False, False, _REFR0, _REFV0, b=b
+            p_b15, 1.0, False, False, REFR0, REFV0, b=b
         )
         prog = Orbit(
             [229.018, -0.124, 23.2, -2.296, -2.257, -58.7],
             radec=True,
-            ro=_REFR0,
-            vo=_REFV0,
+            ro=REFR0,
+            vo=REFV0,
             solarmotion=[-11.1, 24.0, 7.25],
         )
         prog.integrate(times, pot)
@@ -477,8 +458,8 @@ if __name__ == "__main__":
         prog = Orbit(
             [229.018, -0.124, 23.2, -2.296, -2.257, -58.7],
             radec=True,
-            ro=_REFR0,
-            vo=_REFV0,
+            ro=REFR0,
+            vo=REFV0,
             solarmotion=[-11.1, 24.0, 7.25],
         ).flip()
         prog.integrate(times, pot)
@@ -520,13 +501,13 @@ if __name__ == "__main__":
     bs = np.arange(0.5, 2.1, 0.1)
     for b in bs:
         pot = MWPotential2014Likelihood.setup_potential(
-            p_b15, 1.0, False, False, _REFR0, _REFV0, b=b, pa=np.pi / 4.0
+            p_b15, 1.0, False, False, REFR0, REFV0, b=b, pa=np.pi / 4.0
         )
         prog = Orbit(
             [229.018, -0.124, 23.2, -2.296, -2.257, -58.7],
             radec=True,
-            ro=_REFR0,
-            vo=_REFV0,
+            ro=REFR0,
+            vo=REFV0,
             solarmotion=[-11.1, 24.0, 7.25],
         )
         prog.integrate(times, pot)
@@ -534,8 +515,8 @@ if __name__ == "__main__":
         prog = Orbit(
             [229.018, -0.124, 23.2, -2.296, -2.257, -58.7],
             radec=True,
-            ro=_REFR0,
-            vo=_REFV0,
+            ro=REFR0,
+            vo=REFV0,
             solarmotion=[-11.1, 24.0, 7.25],
         ).flip()
         prog.integrate(times, pot)
@@ -578,13 +559,13 @@ if __name__ == "__main__":
     ds = np.linspace(22.5, 24.5, 101)
     for d in ds:
         pot = MWPotential2014Likelihood.setup_potential(
-            p_b15, 1.0, False, False, _REFR0, _REFV0
+            p_b15, 1.0, False, False, REFR0, REFV0
         )
         prog = Orbit(
             [229.018, -0.124, d, -2.296, -2.257, -58.7],
             radec=True,
-            ro=_REFR0,
-            vo=_REFV0,
+            ro=REFR0,
+            vo=REFV0,
             solarmotion=[-11.1, 24.0, 7.25],
         )
         prog.integrate(times, pot)
@@ -592,8 +573,8 @@ if __name__ == "__main__":
         prog = Orbit(
             [229.018, -0.124, d, -2.296, -2.257, -58.7],
             radec=True,
-            ro=_REFR0,
-            vo=_REFV0,
+            ro=REFR0,
+            vo=REFV0,
             solarmotion=[-11.1, 24.0, 7.25],
         ).flip()
         prog.integrate(times, pot)
@@ -639,36 +620,22 @@ if __name__ == "__main__":
     pms = np.linspace(-0.3, 0.3, 101)
     for pm in pms:
         pot = MWPotential2014Likelihood.setup_potential(
-            p_b15, 1.0, False, False, _REFR0, _REFV0
+            p_b15, 1.0, False, False, REFR0, REFV0
         )
         prog = Orbit(
-            [
-                229.018,
-                -0.124,
-                23.2,
-                -2.296 + pm,
-                -2.257 + 2.257 / 2.296 * pm,
-                -58.7,
-            ],
+            [229.018, -0.124, 23.2, -2.296 + pm, -2.257 + 2.257 / 2.296 * pm, -58.7,],
             radec=True,
-            ro=_REFR0,
-            vo=_REFV0,
+            ro=REFR0,
+            vo=REFV0,
             solarmotion=[-11.1, 24.0, 7.25],
         )
         prog.integrate(times, pot)
         progs.append(prog)
         prog = Orbit(
-            [
-                229.018,
-                -0.124,
-                23.2,
-                -2.296 + pm,
-                -2.257 + 2.257 / 2.296 * pm,
-                -58.7,
-            ],
+            [229.018, -0.124, 23.2, -2.296 + pm, -2.257 + 2.257 / 2.296 * pm, -58.7,],
             radec=True,
-            ro=_REFR0,
-            vo=_REFV0,
+            ro=REFR0,
+            vo=REFV0,
             solarmotion=[-11.1, 24.0, 7.25],
         ).flip()
         prog.integrate(times, pot)
@@ -716,36 +683,22 @@ if __name__ == "__main__":
     pms = np.linspace(-0.3, 0.3, 101)
     for pm in pms:
         pot = MWPotential2014Likelihood.setup_potential(
-            p_b15, 1.0, False, False, _REFR0, _REFV0
+            p_b15, 1.0, False, False, REFR0, REFV0
         )
         prog = Orbit(
-            [
-                229.018,
-                -0.124,
-                23.2,
-                -2.296 + pm,
-                -2.257 - 2.296 / 2.257 * pm,
-                -58.7,
-            ],
+            [229.018, -0.124, 23.2, -2.296 + pm, -2.257 - 2.296 / 2.257 * pm, -58.7,],
             radec=True,
-            ro=_REFR0,
-            vo=_REFV0,
+            ro=REFR0,
+            vo=REFV0,
             solarmotion=[-11.1, 24.0, 7.25],
         )
         prog.integrate(times, pot)
         progs.append(prog)
         prog = Orbit(
-            [
-                229.018,
-                -0.124,
-                23.2,
-                -2.296 + pm,
-                -2.257 - 2.296 / 2.257 * pm,
-                -58.7,
-            ],
+            [229.018, -0.124, 23.2, -2.296 + pm, -2.257 - 2.296 / 2.257 * pm, -58.7,],
             radec=True,
-            ro=_REFR0,
-            vo=_REFV0,
+            ro=REFR0,
+            vo=REFV0,
             solarmotion=[-11.1, 24.0, 7.25],
         ).flip()
         prog.integrate(times, pot)
@@ -811,29 +764,17 @@ if __name__ == "__main__":
         tc = cmap((c - np.amin(cs)) / (np.amax(cs) - np.amin(cs)))
         plt.subplot(1, 2, 1)
         bovy_plot.bovy_plot(
-            pal5varyc[0][ii, :, 0],
-            pal5varyc[0][ii, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyc[0][ii, :, 0], pal5varyc[0][ii, :, 1], color=tc, overplot=True,
         )
         bovy_plot.bovy_plot(
-            pal5varyc[1][ii, :, 0],
-            pal5varyc[1][ii, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyc[1][ii, :, 0], pal5varyc[1][ii, :, 1], color=tc, overplot=True,
         )
         plt.subplot(1, 2, 2)
         bovy_plot.bovy_plot(
-            pal5varyc[2][ii, :, 0],
-            pal5varyc[2][ii, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyc[2][ii, :, 0], pal5varyc[2][ii, :, 1], color=tc, overplot=True,
         )
         bovy_plot.bovy_plot(
-            pal5varyc[3][ii, :, 0],
-            pal5varyc[3][ii, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyc[3][ii, :, 0], pal5varyc[3][ii, :, 1], color=tc, overplot=True,
         )
     plot_data_add_labels()
     plt.tight_layout()
@@ -876,23 +817,14 @@ if __name__ == "__main__":
         tc = cmap((vc - np.amin(vcs)) / (np.amax(vcs) - np.amin(vcs)))
         plt.subplot(1, 2, 1)
         bovy_plot.bovy_plot(
-            pal5varyvc[ii, 0, :, 0],
-            pal5varyvc[ii, 0, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyvc[ii, 0, :, 0], pal5varyvc[ii, 0, :, 1], color=tc, overplot=True,
         )
         bovy_plot.bovy_plot(
-            pal5varyvc[ii, 1, :, 0],
-            pal5varyvc[ii, 1, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyvc[ii, 1, :, 0], pal5varyvc[ii, 1, :, 1], color=tc, overplot=True,
         )
         plt.subplot(1, 2, 2)
         bovy_plot.bovy_plot(
-            pal5varyvc[ii, 2, :, 0],
-            pal5varyvc[ii, 2, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyvc[ii, 2, :, 0], pal5varyvc[ii, 2, :, 1], color=tc, overplot=True,
         )
         bovy_plot.bovy_plot(
             pal5varyvc[ii, 3, :500, 0],
@@ -925,9 +857,7 @@ if __name__ == "__main__":
             pal5varyd = pickle.load(savefile)
     else:
         ds = np.arange(20.0, 24.5, 0.5)
-        pal5varyd = np.zeros(
-            (len(ds), 4, pal5varyc[0].shape[1], pal5varyc[0].shape[2])
-        )
+        pal5varyd = np.zeros((len(ds), 4, pal5varyc[0].shape[1], pal5varyc[0].shape[2]))
         for ii, d in enumerate(tqdm(ds)):
             t = pal5_util.predict_pal5obs(
                 p_b15, 1.0, multi=8, dist=d, singlec=True, useTM=False
@@ -942,23 +872,14 @@ if __name__ == "__main__":
         tc = cmap((d - np.amin(ds)) / (np.amax(ds) - np.amin(ds)))
         plt.subplot(1, 2, 1)
         bovy_plot.bovy_plot(
-            pal5varyd[ii, 0, :, 0],
-            pal5varyd[ii, 0, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyd[ii, 0, :, 0], pal5varyd[ii, 0, :, 1], color=tc, overplot=True,
         )
         bovy_plot.bovy_plot(
-            pal5varyd[ii, 1, :, 0],
-            pal5varyd[ii, 1, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyd[ii, 1, :, 0], pal5varyd[ii, 1, :, 1], color=tc, overplot=True,
         )
         plt.subplot(1, 2, 2)
         bovy_plot.bovy_plot(
-            pal5varyd[ii, 2, :, 0],
-            pal5varyd[ii, 2, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyd[ii, 2, :, 0], pal5varyd[ii, 2, :, 1], color=tc, overplot=True,
         )
         bovy_plot.bovy_plot(
             pal5varyd[ii, 3, :500, 0],
@@ -997,13 +918,7 @@ if __name__ == "__main__":
         for ii, pm in enumerate(tqdm(pms)):
             pmra, pmdec = -2.296 + pm, -2.257 + 2.257 / 2.296 * pm
             t = pal5_util.predict_pal5obs(
-                p_b15,
-                1.0,
-                multi=8,
-                pmra=pmra,
-                pmdec=pmdec,
-                singlec=True,
-                useTM=False,
+                p_b15, 1.0, multi=8, pmra=pmra, pmdec=pmdec, singlec=True, useTM=False,
             )
             for jj in range(4):
                 pal5varypm[ii, jj] = t[jj][0]
@@ -1015,23 +930,14 @@ if __name__ == "__main__":
         tc = cmap((pm - np.amin(pms)) / (np.amax(pms) - np.amin(pms)))
         plt.subplot(1, 2, 1)
         bovy_plot.bovy_plot(
-            pal5varypm[ii, 0, :, 0],
-            pal5varypm[ii, 0, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varypm[ii, 0, :, 0], pal5varypm[ii, 0, :, 1], color=tc, overplot=True,
         )
         bovy_plot.bovy_plot(
-            pal5varypm[ii, 1, :, 0],
-            pal5varypm[ii, 1, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varypm[ii, 1, :, 0], pal5varypm[ii, 1, :, 1], color=tc, overplot=True,
         )
         plt.subplot(1, 2, 2)
         bovy_plot.bovy_plot(
-            pal5varypm[ii, 2, :, 0],
-            pal5varypm[ii, 2, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varypm[ii, 2, :, 0], pal5varypm[ii, 2, :, 1], color=tc, overplot=True,
         )
         bovy_plot.bovy_plot(
             pal5varypm[ii, 3, :500, 0],
@@ -1062,29 +968,17 @@ if __name__ == "__main__":
         tc = cmap((c - np.amin(cs)) / (np.amax(cs) - np.amin(cs)))
         plt.subplot(gs[4])
         bovy_plot.bovy_plot(
-            pal5varyc[0][ii, :, 0],
-            pal5varyc[0][ii, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyc[0][ii, :, 0], pal5varyc[0][ii, :, 1], color=tc, overplot=True,
         )
         bovy_plot.bovy_plot(
-            pal5varyc[1][ii, :, 0],
-            pal5varyc[1][ii, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyc[1][ii, :, 0], pal5varyc[1][ii, :, 1], color=tc, overplot=True,
         )
         plt.subplot(gs[8])
         bovy_plot.bovy_plot(
-            pal5varyc[2][ii, :, 0],
-            pal5varyc[2][ii, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyc[2][ii, :, 0], pal5varyc[2][ii, :, 1], color=tc, overplot=True,
         )
         bovy_plot.bovy_plot(
-            pal5varyc[3][ii, :, 0],
-            pal5varyc[3][ii, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyc[3][ii, :, 0], pal5varyc[3][ii, :, 1], color=tc, overplot=True,
         )
     plot_data_add_labels(p1=(gs[4],), p2=(gs[8],), noxlabel_dec=True)
     # Vc
@@ -1092,23 +986,14 @@ if __name__ == "__main__":
         tc = cmap((vc - np.amin(vcs)) / (np.amax(vcs) - np.amin(vcs)))
         plt.subplot(gs[5])
         bovy_plot.bovy_plot(
-            pal5varyvc[ii, 0, :, 0],
-            pal5varyvc[ii, 0, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyvc[ii, 0, :, 0], pal5varyvc[ii, 0, :, 1], color=tc, overplot=True,
         )
         bovy_plot.bovy_plot(
-            pal5varyvc[ii, 1, :, 0],
-            pal5varyvc[ii, 1, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyvc[ii, 1, :, 0], pal5varyvc[ii, 1, :, 1], color=tc, overplot=True,
         )
         plt.subplot(gs[9])
         bovy_plot.bovy_plot(
-            pal5varyvc[ii, 2, :, 0],
-            pal5varyvc[ii, 2, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyvc[ii, 2, :, 0], pal5varyvc[ii, 2, :, 1], color=tc, overplot=True,
         )
         bovy_plot.bovy_plot(
             pal5varyvc[ii, 3, :500, 0],
@@ -1116,31 +1001,20 @@ if __name__ == "__main__":
             color=tc,
             overplot=True,
         )
-    plot_data_add_labels(
-        p1=(gs[5],), p2=(gs[9],), noylabel=True, noxlabel_dec=True
-    )
+    plot_data_add_labels(p1=(gs[5],), p2=(gs[9],), noylabel=True, noxlabel_dec=True)
     # D
     for ii, d in enumerate(ds):
         tc = cmap((d - np.amin(ds)) / (np.amax(ds) - np.amin(ds)))
         plt.subplot(gs[6])
         bovy_plot.bovy_plot(
-            pal5varyd[ii, 0, :, 0],
-            pal5varyd[ii, 0, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyd[ii, 0, :, 0], pal5varyd[ii, 0, :, 1], color=tc, overplot=True,
         )
         bovy_plot.bovy_plot(
-            pal5varyd[ii, 1, :, 0],
-            pal5varyd[ii, 1, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyd[ii, 1, :, 0], pal5varyd[ii, 1, :, 1], color=tc, overplot=True,
         )
         plt.subplot(gs[10])
         bovy_plot.bovy_plot(
-            pal5varyd[ii, 2, :, 0],
-            pal5varyd[ii, 2, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varyd[ii, 2, :, 0], pal5varyd[ii, 2, :, 1], color=tc, overplot=True,
         )
         bovy_plot.bovy_plot(
             pal5varyd[ii, 3, :500, 0],
@@ -1148,31 +1022,20 @@ if __name__ == "__main__":
             color=tc,
             overplot=True,
         )
-    plot_data_add_labels(
-        p1=(gs[6],), p2=(gs[10],), noylabel=True, noxlabel_dec=True
-    )
+    plot_data_add_labels(p1=(gs[6],), p2=(gs[10],), noylabel=True, noxlabel_dec=True)
     # PM
     for ii, pm in enumerate(pms):
         tc = cmap((pm - np.amin(pms)) / (np.amax(pms) - np.amin(pms)))
         plt.subplot(gs[7])
         bovy_plot.bovy_plot(
-            pal5varypm[ii, 0, :, 0],
-            pal5varypm[ii, 0, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varypm[ii, 0, :, 0], pal5varypm[ii, 0, :, 1], color=tc, overplot=True,
         )
         bovy_plot.bovy_plot(
-            pal5varypm[ii, 1, :, 0],
-            pal5varypm[ii, 1, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varypm[ii, 1, :, 0], pal5varypm[ii, 1, :, 1], color=tc, overplot=True,
         )
         plt.subplot(gs[11])
         bovy_plot.bovy_plot(
-            pal5varypm[ii, 2, :, 0],
-            pal5varypm[ii, 2, :, 1],
-            color=tc,
-            overplot=True,
+            pal5varypm[ii, 2, :, 0], pal5varypm[ii, 2, :, 1], color=tc, overplot=True,
         )
         bovy_plot.bovy_plot(
             pal5varypm[ii, 3, :500, 0],
@@ -1180,9 +1043,7 @@ if __name__ == "__main__":
             color=tc,
             overplot=True,
         )
-    plot_data_add_labels(
-        p1=(gs[7],), p2=(gs[11],), noylabel=True, noxlabel_dec=True
-    )
+    plot_data_add_labels(p1=(gs[7],), p2=(gs[11],), noylabel=True, noxlabel_dec=True)
     # Colorbars
     for ii, (label, vals, ticks) in enumerate(
         zip(
@@ -1203,21 +1064,16 @@ if __name__ == "__main__":
     ):
         plt.subplot(gs[ii])
         sm = plt.cm.ScalarMappable(
-            cmap=cmap,
-            norm=plt.Normalize(vmin=np.amin(vals), vmax=np.amax(vals)),
+            cmap=cmap, norm=plt.Normalize(vmin=np.amin(vals), vmax=np.amax(vals)),
         )
         sm._A = []
-        CB1 = plt.colorbar(
-            sm, orientation="horizontal", cax=plt.gca(), ticks=ticks
-        )
+        CB1 = plt.colorbar(sm, orientation="horizontal", cax=plt.gca(), ticks=ticks)
         CB1.set_label(label, fontsize=16.0)
         CB1.ax.xaxis.set_ticks_position("top")
         CB1.ax.xaxis.set_label_position("top")
     if save_figures:
         plt.savefig(
-            os.path.join(
-                os.getenv("PAPERSDIR"), "2016-mwhalo-shape", "pal5track.pdf"
-            ),
+            os.path.join(os.getenv("PAPERSDIR"), "2016-mwhalo-shape", "pal5track.pdf"),
             bbox_inches="tight",
         )
     plt.savefig("figures/2016-mwhalo-shape-pal5track.pdf")

@@ -46,7 +46,7 @@ import argparse
 import pickle
 import numpy as np
 from tqdm import tqdm
-from typing import Union, Optional
+from typing import Optional
 
 from scipy import integrate
 
@@ -62,12 +62,13 @@ from galpy.util import (
 )
 
 # PROJECT-SPECIFIC
-import script_util as su
 
 # fmt: off
 import sys; sys.path.insert(0, "../../../")
 # fmt: on
-from src import MWPotential2014Likelihood
+from pal5_constrain_mwhalo_shape.mw_pot import fit as fit_pot, sample as sample_pot, plot_samples, REFR0, REFV0
+from pal5_constrain_mwhalo_shape.mw_pot.MWPotential2014Likelihood import setup_potential
+import pal5_constrain_mwhalo_shape.scripts.create_MW_potential_2014.script_util as su
 
 
 ###############################################################################
@@ -76,9 +77,6 @@ from src import MWPotential2014Likelihood
 np.random.seed(1)  # set random number seed. TODO use numpy1.8 generator
 
 save_figures = False  # TODO needs papers-directory
-
-_REFR0 = MWPotential2014Likelihood._REFR0
-_REFV0 = MWPotential2014Likelihood._REFV0
 
 
 ###############################################################################
@@ -91,8 +89,14 @@ _REFV0 = MWPotential2014Likelihood._REFV0
 ###############################################################################
 
 
-def make_parser(add_help=True):
+def make_parser(inheritable=False):
     """Make ArgumentParser for fit_mwpot15_script.
+
+    Parameters
+    ----------
+    inheritable: bool
+        whether the parser can be inherited from (default False).
+        if True, sets ``add_help=False`` and ``conflict_hander='resolve'``
 
     Returns
     -------
@@ -103,7 +107,8 @@ def make_parser(add_help=True):
     parser = argparse.ArgumentParser(
         prog="fit_potential_combo_pal5_gd1_script",
         description="Fit combination Pal5 and GD1 to MW potential.",
-        add_help=add_help,
+        add_help=~inheritable,
+        conflict_handler="resolve" if ~inheritable else "error",
     )
     parser.add_argument(
         "-f",
@@ -118,7 +123,7 @@ def make_parser(add_help=True):
         "--output",
         default="output/",
         type=str,
-        help="figure save folder",
+        help="output save folder",
         dest="opath",
     )
 
@@ -127,11 +132,11 @@ def make_parser(add_help=True):
 
 # /def
 
+
 # ------------------------------------------------------------------------
 
-def main(
-    args: Optional[list] = None, opts: Optional[argparse.Namespace] = None
-):
+
+def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None):
     """Fit Combination Pal5 and GD1 to MW Potential Script Function.
 
     Parameters
@@ -155,7 +160,7 @@ def main(
     # $R_0$ and $V_c(R_0)$
 
     plt.figure(figsize=(16, 5))
-    p_b15_pal5gd1_voro = su.fit(
+    p_b15_pal5gd1_voro = fit_pot(
         fitc=True,
         c=None,
         addpal5=True,
@@ -172,7 +177,7 @@ def main(
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
     else:
-        s = su.sample(
+        s = sample_pot(
             nsamples=100000,
             params=p_b15_pal5gd1_voro[0],
             fitc=True,
@@ -188,7 +193,7 @@ def main(
     # -----------------------
 
     plt.figure()
-    su.plot_samples(
+    plot_samples(
         s,
         True,
         True,
@@ -208,11 +213,7 @@ def main(
         cs = np.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
-            dum = su.fit(
-                fitc=False,
-                c=c,
-                plots=fpath + "mwpot14varyc-bf-fit.pdf",
-            )
+            dum = fit_pot(fitc=False, c=c, plots=fpath + "mwpot14varyc-bf-fit.pdf",)
             bf_params.append(dum[0])
         save_pickles(bf_savefilename, cs, bf_params)
 
@@ -235,9 +236,7 @@ def main(
     if save_figures:
         plt.savefig(
             os.path.join(
-                os.getenv("PAPERSDIR"),
-                "2016-mwhalo-shape",
-                "mwpot14-varyc-wp5g1.pdf",
+                os.getenv("PAPERSDIR"), "2016-mwhalo-shape", "mwpot14-varyc-wp5g1.pdf",
             ),
             bbox_inches="tight",
         )
@@ -255,9 +254,7 @@ def main(
         xrange=[0.5, 1.5],
         normed=True,
     )
-    plt.savefig(
-        fpath + "mwpot14varyc-bf-combo_pal5_gd1-shape_hist.pdf"
-    )
+    plt.savefig(fpath + "mwpot14varyc-bf-combo_pal5_gd1-shape_hist.pdf")
 
     with open(opath + "fit_potential_combo-pal5-gd1.txt", "w") as file:
         sortedc = np.array(sorted(s[cindx][-50000:]))
@@ -283,25 +280,17 @@ def main(
                 sortedc[int(np.floor(0.84 * len(sortedc)))],
             )
         )
-        file.write(
-            "Mean, std. dev.: %.2f,%.2f" % (np.mean(sortedc), np.std(sortedc),)
-        )
+        file.write("Mean, std. dev.: %.2f,%.2f" % (np.mean(sortedc), np.std(sortedc),))
 
     # -----------------------
     # What is the constraint on the mass of the halo?
 
-    tR = 20.0 / _REFR0
+    tR = 20.0 / REFR0
     skip = 1
     hmass = []
     for sa in tqdm(s.T[::skip]):
-        pot = MWPotential2014Likelihood.setup_potential(
-            sa,
-            sa[-1],
-            True,
-            False,
-            _REFR0 * sa[8],
-            _REFV0 * sa[7],
-            fitvoro=True,
+        pot = setup_potential(
+            sa, sa[-1], True, False, REFR0 * sa[8], REFV0 * sa[7], fitvoro=True,
         )
         hmass.append(
             -integrate.quad(
@@ -312,14 +301,12 @@ def main(
                 0.0,
                 1.0,
             )[0]
-            * bovy_conversion.mass_in_1010msol(_REFV0, _REFR0)
+            * bovy_conversion.mass_in_1010msol(REFV0, REFR0)
             / 10.0
         )
     hmass = np.array(hmass)
 
-    with open(
-        opath + "fit_potential_combo-pal5-gd1.txt", "ab"
-    ) as file:  # append
+    with open(opath + "fit_potential_combo-pal5-gd1.txt", "a") as file:  # append
 
         file.write("\nMass Constraints:")
 

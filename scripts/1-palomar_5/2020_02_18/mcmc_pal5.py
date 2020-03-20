@@ -3,7 +3,7 @@
 # ----------------------------------------------------------------------------
 #
 # TITLE   : mcmc_pal5
-# PROJECT : Pal 5 update MW pot constraints
+# PROJECT : Pal 5 update MW potential constraints
 #
 # ----------------------------------------------------------------------------
 
@@ -56,7 +56,7 @@ import emcee
 # fmt: off
 import sys; sys.path.append('../../../')
 # fmt: on
-from src import pal5_util
+from pal5_constrain_mwhalo_shape.streams.pal5 import pal5_util
 
 
 ###############################################################################
@@ -230,22 +230,16 @@ def lnp(p: list, pot_params: list, options: OptionParser):
         sigv = 0.4
 
     # Priors
-    if c < 0.5:
-        return -100000000000000000.0
-    elif c > 2.0:
-        return -10000000000000000.0
-    elif vo < 200:
-        return -10000000000000000.0
-    elif vo > 250:
-        return -10000000000000000.0
-    elif dist < 19.0:
-        return -10000000000000000.0
-    elif dist > 24.0:
-        return -10000000000000000.0
-    elif options.fitsigma and sigv < 0.1:
-        return -10000000000000000.0
-    elif options.fitsigma and sigv > 1.0:
-        return -10000000000000000.0
+    if (c < 0.5) | (2.0 < c):
+        return -1e16
+    elif (vo < 200) | (250 < vo):
+        return -1e16
+    elif (dist < 19.0) | (24.0 < dist):
+        return -1e16
+    elif ((sigv < 0.1) | (1.0 < sigv)) and options.fitsigma:
+        return -1e16
+    # elif options.fitsigma and sigv > 1.0:
+    #     return -1e16
 
     # Setup the model
     trailing_only = False  # NOTE change
@@ -266,19 +260,20 @@ def lnp(p: list, pot_params: list, options: OptionParser):
         nTrackChunks=8,
     )
 
-    pos_radec, rvel_ra = pal5_util.pal5_total_data()  # NOTE changed
+    pos_radec, rvel_ra = pal5_util.pal5_data_total()  # NOTE changed
 
     if options.fitsigma:
         lnlike = pal5_util.pal5_lnlike(
             pos_radec,
             rvel_ra,
-            pal5varyc_like[0],
-            pal5varyc_like[1],
-            pal5varyc_like[2],
-            pal5varyc_like[3],
-            pal5varyc_like[4],
-            pal5varyc_like[5],
-            pal5varyc_like[6],
+            *pal5varyc_like,
+            # pal5varyc_like[0],
+            # pal5varyc_like[1],
+            # pal5varyc_like[2],
+            # pal5varyc_like[3],
+            # pal5varyc_like[4],
+            # pal5varyc_like[5],
+            # pal5varyc_like[6],
             trailing_only=trailing_only,
         )
         if not pal5varyc_like[7]:
@@ -307,12 +302,13 @@ def lnp(p: list, pot_params: list, options: OptionParser):
             pos_radec,
             rvel_ra,
             tra,
-            pal5varyc_like[1],
-            pal5varyc_like[2],
-            pal5varyc_like[3],
-            pal5varyc_like[4],
-            pal5varyc_like[5],
-            pal5varyc_like[6],
+            *pal5varyc_like[1:],
+            # pal5varyc_like[1],
+            # pal5varyc_like[2],
+            # pal5varyc_like[3],
+            # pal5varyc_like[4],
+            # pal5varyc_like[5],
+            # pal5varyc_like[6],
         )[0, 0]
 
     # Calculate and return a log-likelihood
@@ -321,13 +317,14 @@ def lnp(p: list, pot_params: list, options: OptionParser):
         + pal5_util.pal5_lnlike(
             pos_radec,
             rvel_ra,
-            pal5varyc_like[0],
-            pal5varyc_like[1],
-            pal5varyc_like[2],
-            pal5varyc_like[3],
-            pal5varyc_like[4],
-            pal5varyc_like[5],
-            pal5varyc_like[6],
+            *pal5varyc_like,
+            # pal5varyc_like[0],
+            # pal5varyc_like[1],
+            # pal5varyc_like[2],
+            # pal5varyc_like[3],
+            # pal5varyc_like[4],
+            # pal5varyc_like[5],
+            # pal5varyc_like[6],
         )[0, 2]
         - 0.5 * (pmra + 2.296) ** 2.0 / 0.186 ** 2.0
         - 0.5 * (pmdec + 2.257) ** 2.0 / 0.181 ** 2.0
@@ -385,22 +382,19 @@ def get_options():
     parser.add_option(
         "--ro",
         dest="ro",
-        default=pal5_util._REFR0,
+        default=pal5_util.REFR0,
         type="float",
         help="Distance to the Galactic center in kpc",
     )
     parser.add_option(
-        "--td",
-        dest="td",
-        default=5.0,
-        type="float",
-        help="Age of the stream in Gyr",
+        "--td", dest="td", default=5.0, type="float", help="Age of the stream in Gyr",
     )
     parser.add_option(
         "--samples_savefilename",
         dest="samples_savefilename",
-        default=("../../0-create_MW_potential_2014/"
-                 "latest/output/mwpot14varyc-samples.pkl"),
+        default=(
+            "../../0-create_MW_potential_2014/" "latest/output/mwpot14varyc-samples.pkl"
+        ),
         help="Name of the file that contains the potential samples",
     )
     # Output file
@@ -468,9 +462,7 @@ if __name__ == "__main__":
         if cstart > 1.15:
             cstart = 1.15  # Higher c doesn't typically really work
         if options.fitsigma:
-            start_params = numpy.array(
-                [cstart, 1.0, dist / 22.0, 0.0, 0.0, 0.0]
-            )
+            start_params = numpy.array([cstart, 1.0, dist / 22.0, 0.0, 0.0, 0.0])
             step = numpy.array([0.05, 0.05, 0.05, 0.05, 0.01, 0.05])
         else:
             start_params = numpy.array([cstart, 1.0, dist / 22.0, 0.0, 0.0])
@@ -480,8 +472,7 @@ if __name__ == "__main__":
         while nn < nwalkers:
             print(nn, end=", ")
             all_start_params[nn] = (
-                start_params
-                + numpy.random.normal(size=len(start_params)) * step
+                start_params + numpy.random.normal(size=len(start_params)) * step
             )
             start_lnprob0[nn] = lnp(all_start_params[nn], pot_params, options)
             if start_lnprob0[nn] > -1000000.0:
@@ -495,9 +486,7 @@ if __name__ == "__main__":
             all_lines = savefile.readlines()
         for nn in range(nwalkers):
             lastline = all_lines[-1 - nn]
-            tstart_params = numpy.array(
-                [float(s) for s in lastline.split(",")]
-            )
+            tstart_params = numpy.array([float(s) for s in lastline.split(",")])
             start_lnprob0[nn] = tstart_params[-1]
             all_start_params[nn] = tstart_params[:-1]
 
@@ -560,11 +549,7 @@ if __name__ == "__main__":
     start = time.time()
     while time.time() < start + options.dt * 60.0:
         new_params, new_lnp, new_rstate0 = sampler.run_mcmc(
-            all_start_params,
-            1,
-            log_prob0=start_lnprob0,
-            rstate0=rstate0,
-            store=False,
+            all_start_params, 1, log_prob0=start_lnprob0, rstate0=rstate0, store=False,
         )
         all_start_params = new_params
         start_lnprob0 = new_lnp

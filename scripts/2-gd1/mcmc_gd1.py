@@ -53,7 +53,8 @@ from scipy.misc import logsumexp
 import emcee
 
 # PROJECT-SPECIFIC
-from . import pal5_util, gd1_util
+from .streams.pal5 import pal5_util
+from .streams.gd1 import gd1_util
 
 
 ###############################################################################
@@ -158,9 +159,7 @@ def lnp(p, pot_params, options):
 
     posdata, distdata, pmdata, rvdata = gd1_util.gd1_data()
 
-    lnlike = gd1_util.gd1_lnlike(
-        posdata, distdata, pmdata, rvdata, gd1varyc_like[0]
-    )
+    lnlike = gd1_util.gd1_lnlike(posdata, distdata, pmdata, rvdata, gd1varyc_like[0])
 
     if not gd1varyc_like[1]:
         addllnlike = -15.0  # penalize
@@ -231,7 +230,7 @@ def get_options():
     parser.add_option(
         "--ro",
         dest="ro",
-        default=pal5_util._REFR0,
+        default=pal5_util.REFR0,
         type="float",
         help="Distance to the Galactic center in kpc",
     )
@@ -308,9 +307,7 @@ if __name__ == "__main__":
                     numpy.log(0.365 / 0.4),
                 ]
             )
-            step = numpy.array(
-                [0.05, 0.03, 0.05, 0.03, 0.05, 0.03, 0.05, 0.05]
-            )
+            step = numpy.array([0.05, 0.03, 0.05, 0.03, 0.05, 0.03, 0.05, 0.05])
         else:
             start_params = numpy.array(
                 [cstart, 1.0, -1.0, 10.2 / 10.0, 0.0, -0.05, -285.0 / 300.0]
@@ -319,8 +316,7 @@ if __name__ == "__main__":
         nn = 0
         while nn < nwalkers:
             all_start_params[nn] = (
-                start_params
-                + numpy.random.normal(size=len(start_params)) * step
+                start_params + numpy.random.normal(size=len(start_params)) * step
             )
             start_lnprob0[nn] = lnp(all_start_params[nn], pot_params, options)
             if start_lnprob0[nn] > -1000000.0:
@@ -333,9 +329,7 @@ if __name__ == "__main__":
             all_lines = savefile.readlines()
         for nn in range(nwalkers):
             lastline = all_lines[-1 - nn]
-            tstart_params = numpy.array(
-                [float(s) for s in lastline.split(",")]
-            )
+            tstart_params = numpy.array([float(s) for s in lastline.split(",")])
             start_lnprob0[nn] = tstart_params[-1]
             all_start_params[nn] = tstart_params[:-1]
     # Output

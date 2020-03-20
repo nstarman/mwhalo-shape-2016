@@ -57,7 +57,16 @@ from galpy.util import (
 )
 
 # PROJECT-SPECIFIC
-import script_util as su
+
+# fmt: off
+import sys; sys.path.insert(0, "../../../")
+# fmt: on
+from pal5_constrain_mwhalo_shape.mw_pot import (
+    fit as fit_pot,
+    sample as sample_pot,
+    plot_samples,
+)
+import pal5_constrain_mwhalo_shape.scripts.create_MW_potential_2014.script_util as su
 
 
 ###############################################################################
@@ -78,8 +87,14 @@ save_figures = False  # TODO needs papers-directory
 ###############################################################################
 
 
-def make_parser(add_help=True):
+def make_parser(inheritable=False):
     """Make ArgumentParser for fit_mwpot15_script.
+
+    Parameters
+    ----------
+    inheritable: bool
+        whether the parser can be inherited from (default False).
+        if True, sets ``add_help=False`` and ``conflict_hander='resolve'``
 
     Returns
     -------
@@ -90,7 +105,8 @@ def make_parser(add_help=True):
     parser = argparse.ArgumentParser(
         prog="fit_potential_pal5_script",
         description="Fit Pal5 to MW potential.",
-        add_help=add_help,
+        add_help=~inheritable,
+        conflict_handler="resolve" if ~inheritable else "error",
     )
     parser.add_argument(
         "-f",
@@ -105,7 +121,7 @@ def make_parser(add_help=True):
         "--output",
         default="output/",
         type=str,
-        help="figure save folder",
+        help="output save folder",
         dest="opath",
     )
 
@@ -118,9 +134,7 @@ def make_parser(add_help=True):
 # ------------------------------------------------------------------------
 
 
-def main(
-    args: Optional[list] = None, opts: Optional[argparse.Namespace] = None
-):
+def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None):
     """Fit Pal5 to MW Potential Script Function.
 
     Parameters
@@ -144,7 +158,7 @@ def main(
     # also fitting $R_0$ and $V_c(R_0)$
 
     plt.figure(figsize=(16, 5))
-    p_b15_pal5_voro = su.fit(
+    p_b15_pal5_voro = fit_pot(
         fitc=True,
         c=None,
         addpal5=True,
@@ -160,7 +174,7 @@ def main(
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
     else:
-        s = su.sample(
+        s = sample_pot(
             nsamples=100000,
             params=p_b15_pal5_voro[0],
             fitc=True,
@@ -174,7 +188,7 @@ def main(
     # -----------------------
 
     plt.figure()
-    su.plot_samples(
+    plot_samples(
         s,
         True,
         True,
@@ -193,9 +207,7 @@ def main(
         cs = np.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
-            dum = su.fit(
-                fitc=False, c=c, plots=fpath + "mwpot14varyc-bf-fit.pdf"
-            )
+            dum = fit_pot(fitc=False, c=c, plots=fpath + "mwpot14varyc-bf-fit.pdf")
             bf_params.append(dum[0])
         save_pickles(bf_savefilename, cs, bf_params)
 
@@ -209,11 +221,7 @@ def main(
         ytick_labelsize=15.0,
     )
     su.plot_mcmc_c(
-        s,
-        True,
-        cs,
-        bf_params,
-        savefig=fpath + "mwpot14varyc-bf-pal5-dependence.pdf",
+        s, True, cs, bf_params, savefig=fpath + "mwpot14varyc-bf-pal5-dependence.pdf",
     )
 
     # -----------------------

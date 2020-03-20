@@ -45,7 +45,6 @@ import os.path
 import copy
 import time
 import pickle
-import csv
 from argparse import ArgumentParser, Namespace
 from typing import Optional
 
@@ -57,7 +56,7 @@ import emcee
 # fmt: off
 import sys; sys.path.append('../../../')
 # fmt: on
-from src import pal5_util
+from pal5_constrain_mwhalo_shape.streams.pal5 import pal5_util
 
 
 ###############################################################################
@@ -267,7 +266,7 @@ def lnp(p: list, pot_params: list, options: Namespace):
         nTrackChunks=8,
     )
 
-    pos_radec, rvel_ra = pal5_util.pal5_total_data()  # NOTE changed
+    pos_radec, rvel_ra = pal5_util.pal5_data_total()  # NOTE changed
 
     if options.fitsigma:
         lnlike = pal5_util.pal5_lnlike(
@@ -388,23 +387,18 @@ def make_parser():
     parser.add_argument(
         "--ro",
         dest="ro",
-        default=pal5_util._REFR0,
+        default=pal5_util.REFR0,
         type="float",
         help="Distance to the Galactic center in kpc",
     )
     parser.add_argument(
-        "--td",
-        dest="td",
-        default=5.0,
-        type="float",
-        help="Age of the stream in Gyr",
+        "--td", dest="td", default=5.0, type="float", help="Age of the stream in Gyr",
     )
     parser.add_argument(
         "--samples_savefilename",
         dest="samples_savefilename",
         default=(
-            "../../0-create_MW_potential_2014/"
-            "latest/output/mwpot14varyc-samples.pkl"
+            "../../0-create_MW_potential_2014/" "latest/output/mwpot14varyc-samples.pkl"
         ),
         help="Name of the file that contains the potential samples",
     )
@@ -572,11 +566,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
     start = time.time()
     while time.time() < start + options.dt * 60.0:
         new_params, new_lnp, new_rstate0 = sampler.run_mcmc(
-            all_start_params,
-            1,
-            log_prob0=start_lnprob0,
-            rstate0=rstate0,
-            store=False,
+            all_start_params, 1, log_prob0=start_lnprob0, rstate0=rstate0, store=False,
         )
         all_start_params = new_params
         start_lnprob0 = new_lnp

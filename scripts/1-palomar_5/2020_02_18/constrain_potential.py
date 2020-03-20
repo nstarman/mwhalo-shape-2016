@@ -28,6 +28,8 @@ __all__ = ["main", "make_parser"]
 # IMPORTS
 
 # GENERAL
+
+# builtin
 import os
 import copy
 import glob
@@ -37,29 +39,49 @@ from argparse import ArgumentParser, Namespace
 from types import FunctionType
 from typing import Optional
 
-from tqdm import tqdm
-
+# core
 import numpy as np
+from tqdm import tqdm
 import numba
 
+# astropy
+from astropy import units as u
+
+# plotting
 import matplotlib.pyplot as plt
 from matplotlib import cm, gridspec
 from matplotlib.ticker import NullFormatter
 import seaborn as sns
 import corner
 
+# galpy
+from galpy import potential
 from galpy.orbit import Orbit
 from galpy.util import save_pickles  # switch to astroPHD pickle
 from galpy.util import bovy_plot, bovy_coords
 
-# CUSTOM
 
 # PROJECT-SPECIFIC
+
 # fmt: off
 import sys; sys.path.insert(0, '../../../')
 # fmt: on
-from src import MWPotential2014Likelihood
-from src import mcmc_util, pal5_util
+from pal5_constrain_mwhalo_shape import mcmc_util
+from pal5_constrain_mwhalo_shape.streams.pal5 import pal5_util
+
+from pal5_constrain_mwhalo_shape import mw_pot
+from pal5_constrain_mwhalo_shape.mw_pot import (
+    # REFR0, REFV0
+    MWPotential2014Likelihood
+)
+
+from pal5_constrain_mwhalo_shape.utils.Kuepper2015 import (
+    sample_kuepper_flattening_post,
+    plot_kuepper_samples,
+    sample_kuepper_flatteningforce_post,
+    setup_potential_kuepper,
+    force_pal5_kuepper,
+)
 
 # fmt: off
 from mw_dmhalo_shape_script import _get_pal5varyc, plot_data_add_labels
@@ -79,15 +101,15 @@ if not surffile is None and os.path.exists(surffile):
     kzerrs = surf[:, 7] * 1000.0
 
 # Then the terminal velocities
-cl_glon, cl_vterm, cl_corr = MWPotential2014Likelihood.readClemens(dsinl=0.125)
-mc_glon, mc_vterm, mc_corr = MWPotential2014Likelihood.readMcClureGriffiths07(
+cl_glon, cl_vterm, cl_corr = mw_pot.data.readClemens(dsinl=0.125)
+mc_glon, mc_vterm, mc_corr = mw_pot.data.readMcClureGriffiths07(
     dsinl=0.125
 )
 termdata = (cl_glon, cl_vterm, cl_corr, mc_glon, mc_vterm, mc_corr)
 
 
-_REFR0 = MWPotential2014Likelihood._REFR0
-_REFV0 = MWPotential2014Likelihood._REFV0
+REFR0 = mw_pot.REFR0
+REFV0 = mw_pot.REFV0
 
 
 ###############################################################################
@@ -197,12 +219,12 @@ def read_mcmc(
             potparams = [float(s) for s in (line1.split(":")[1].split(","))]
             forces = np.empty((len(tdata), 2))
             for ee, c in enumerate(tdata[:, 0]):
-                tvo = tdata[ee, 1] * _REFV0
+                tvo = tdata[ee, 1] * REFV0
                 pot = MWPotential2014Likelihood.setup_potential(
-                    potparams, c, False, False, _REFR0, tvo
+                    potparams, c, False, False, REFR0, tvo
                 )
                 forces[ee, :] = MWPotential2014Likelihood.force_pal5(
-                    pot, 23.46, _REFR0, tvo
+                    pot, 23.46, REFR0, tvo
                 )[:2]
             tdata = np.hstack((tdata, forces))
         if addmwpot14weights:
@@ -231,11 +253,11 @@ def read_mcmc(
                 False,
                 False,
                 False,
-                _REFR0,
+                REFR0,
                 220.0,
             )
             for ee, c in enumerate(tdata[:, 0]):
-                tvo = tdata[ee, 1] * _REFV0
+                tvo = tdata[ee, 1] * REFV0
                 tweights[ee] *= np.exp(
                     -MWPotential2014Likelihood.like_func(
                         pot_params,
@@ -249,7 +271,7 @@ def read_mcmc(
                         False,
                         False,
                         False,
-                        _REFR0,
+                        REFR0,
                         tvo,
                     )  # last one is no vo prior
                     + base_like
@@ -271,7 +293,7 @@ def plot_corner(alldata, weights=None, addvcprior=False, addforces=False):
     alldata = copy.deepcopy(alldata)
     weights = copy.deepcopy(weights)
     # First adjust for factors
-    alldata[:, 1] *= _REFV0
+    alldata[:, 1] *= REFV0
     if addvcprior:
         weights *= np.exp(-0.5 * (alldata[:, 1] - 220.0) ** 2.0 / 100.0)
     alldata[:, 2] *= 22.0
@@ -406,7 +428,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
 
     ###############################################################
     # RESULTING PDFS
-    # --------------
+
     data, _, weights, _ = read_mcmc(nburn=None, skip=1, evi_func=lambda x: 1.0)
 
     plot_corner(data, weights=weights)
@@ -415,7 +437,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
 
     # --------------
 
-    savefilename = "pal5_forces_mcmc.pkl"
+    savefilename = "output/pal5_forces_mcmc.pkl"
     if not os.path.exists(savefilename):
         data_wf, index_wf, weights_wf, evi_wf = read_mcmc(
             nburn=None, addforces=True, skip=1, evi_func=lambda x: 1.0
@@ -508,6 +530,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
 
     ###############################################################
     # What is the effective prior in $(F_R,F_Z)$?
+
     frfzprior_savefilename = "frfzprior.pkl"
     if not os.path.exists(frfzprior_savefilename):
         # Compute for each potential separately
@@ -518,17 +541,19 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
         for en, ii in tqdm(enumerate(range(npot))):
             fn = f"output/fitsigma/mwpot14-fitsigma-{i:02}.dat"
             # Read the potential parameters
-            with open(fn, "rb") as savefile:
+            with open(fn, "r") as savefile:
                 line1 = savefile.readline()
             potparams = [float(s) for s in (line1.split(":")[1].split(","))]
             for jj in range(nvoc):
                 c = np.random.uniform() * 1.5 + 0.5
                 tvo = np.random.uniform() * 50.0 + 200.0
                 pot = MWPotential2014Likelihood.setup_potential(
-                    potparams, c, False, False, ro, tvo
+                    potparams, c, False, False, REFR0, tvo
                 )
                 fs[:, jj, ii] = np.array(
-                    MWPotential2014Likelihood.force_pal5(pot, 23.46, ro, tvo)
+                    MWPotential2014Likelihood.force_pal5(
+                        pot, 23.46, REFR0, tvo
+                    )
                 )[:2]
         save_pickles(frfzprior_savefilename, fs)
     else:
@@ -660,7 +685,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
 
     plt.tight_layout()
     plt.savefig(
-        "figures/2016-mwhalo-shape/pal5post.pdf", bbox_inches="tight",
+        "figures/pal5post.pdf", bbox_inches="tight",
     )
     plt.close()
 
@@ -836,7 +861,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
             xrange=[-1.75, -0.25],
             yrange=[-2.5, -1.0],
             justcontours=True,
-            cntrcolors=sns.color_palette()[2],
+            # cntrcolors=sns.color_palette()[2],
             overplot=True,
         )
         plt.axvline(-0.80, color=sns.color_palette()[0])
@@ -849,6 +874,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
 
     # --------------
     # Let's plot four representative ones for the paper:
+
     bovy_plot.bovy_print(
         axes_labelsize=17.0,
         text_fontsize=12.0,
@@ -1000,8 +1026,8 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
             while pindx == 14:
                 pindx = np.random.permutation(32)[0]
             # Load this potential
-            fn = "../pal5_mcmc/mwpot14-fitsigma-%i.dat" % pindx
-            with open(fn, "rb") as savefile:
+            fn = f"output/fitsigma/mwpot14-fitsigma-{pindx:02}.dat"
+            with open(fn, "r") as savefile:
                 line1 = savefile.readline()
             potparams = [float(s) for s in (line1.split(":")[1].split(","))]
             all_potparams[ii] = potparams
@@ -1011,12 +1037,12 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
             tdata = tdata[tnburn::]
             tdata = tdata[np.random.permutation(len(tdata))[0]]
             all_params[ii] = tdata
-            tvo = tdata[1] * _REFV0
+            tvo = tdata[1] * REFV0
             pot = MWPotential2014Likelihood.setup_potential(
-                potparams, tdata[0], False, False, _REFR0, tvo
+                potparams, tdata[0], False, False, REFR0, tvo
             )
             forces[ii, :] = MWPotential2014Likelihood.force_pal5(
-                pot, 23.46, ro, tvo
+                pot, 23.46, REFR0, tvo
             )[:2]
             # Now compute the stream model for this setup
             dist = tdata[2] * 22.0
@@ -1029,7 +1055,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
             prog = Orbit(
                 [229.018, -0.124, dist, pmra, pmdec, vlos],
                 radec=True,
-                ro=ro,
+                ro=REFR0,
                 vo=tvo,
                 solarmotion=[-11.1, 24.0, 7.25],
             )
@@ -1038,7 +1064,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
                 prog,
                 sigv,
                 10.0,
-                ro,
+                REFR0,
                 tvo,
                 multi=multi,
                 nTrackChunks=8,
@@ -1171,140 +1197,11 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
     plt.close()
 
     ###############################################################
-    # What is the effective prior in $(F_R,F_Z)$?
-
-    from galpy import potential
-    from astropy import units as u
-
-    def setup_potential_kuepper(Mhalo, a):
-        r"""Mhalo: mass/10^12 Msun
-        a: scale length in kpc,
-        
-        we'll take q_\Phi into account when we evaluate the potential..."""
-        return [
-            potential.HernquistPotential(
-                amp=3.4 * 10.0 ** 10.0 * u.Msun, a=0.7 * u.kpc
-            ),
-            potential.MiyamotoNagaiPotential(
-                amp=10.0 ** 11.0 * u.Msun, a=6.5 * u.kpc, b=0.26 * u.kpc
-            ),
-            potential.NFWPotential(
-                amp=Mhalo * 10.0 ** 12.0 * u.Msun, a=a * u.kpc
-            ),
-        ]
-
-    def force_pal5_kuepper(pot, qNFW):
-        FR = (
-            pot[0].Rforce(8.4 * u.kpc, 16.8 * u.kpc)
-            + pot[1].Rforce(8.4 * u.kpc, 16.8 * u.kpc)
-            + pot[2].Rforce(8.4 * u.kpc, 16.8 * u.kpc / qNFW)
-        )
-        FZ = (
-            pot[0].zforce(8.4 * u.kpc, 16.8 * u.kpc)
-            + pot[1].zforce(8.4 * u.kpc, 16.8 * u.kpc)
-            + pot[2].zforce(8.4 * u.kpc, 16.8 * u.kpc / qNFW)
-        )
-        return (FR, FZ)
+    # What about Kuepper et al. (2015)?
 
     # Can we recover the Kuepper et al. (2015) result as prior + $q_\Phi =
     # 0.94 \pm 0.05$ + $V_c(R_0)$ between 200 and 280 km/s? For simplicity
     # we will not vary $R_0$, which should not have a big impact.
-
-    import bovy_mcmc
-    import corner
-
-    def kuepper_flattening_post(params, qmean, qerr):
-        """A Kuepper et al.-like posterior that consists solely of the priors and a constraint on q_\Phi"""
-        Mhalo = params[0]
-        a = params[1]
-        qNFW = params[2]
-        if Mhalo < 0.001 or Mhalo > 10.0:
-            return -1000000000000000000.0
-        elif a < 0.1 or a > 100.0:
-            return -1000000000000000000.0
-        elif qNFW < 0.2 or qNFW > 1.8:
-            return -1000000000000000000.0
-        pot = setup_potential_kuepper(Mhalo, a)
-        vcpred = potential.vcirc(pot, 8.0 * u.kpc)
-        if vcpred < 200.0 or vcpred > 280.0:
-            return -1000000000000000000.0
-        FR, FZ = force_pal5_kuepper(pot, qNFW)
-        qpred = np.sqrt(2.0 * FR / FZ)
-        return -0.5 * (qpred - qmean) ** 2.0 / qerr ** 2.0
-
-    def kuepper_flatteningforce_post(params, qmean, qerr, frfz, frfzerr):
-        """A Kuepper et al.-like posterior that consists solely of the priors, a constraint on q_\Phi, and a constraint
-        on FR+FZ"""
-        Mhalo = params[0]
-        a = params[1]
-        qNFW = params[2]
-        if Mhalo < 0.001 or Mhalo > 10.0:
-            return -1000000000000000000.0
-        elif a < 0.1 or a > 100.0:
-            return -1000000000000000000.0
-        elif qNFW < 0.2 or qNFW > 1.8:
-            return -1000000000000000000.0
-        pot = setup_potential_kuepper(Mhalo, a)
-        vcpred = potential.vcirc(pot, 8.0 * u.kpc)
-        if vcpred < 200.0 or vcpred > 280.0:
-            return -1000000000000000000.0
-        FR, FZ = force_pal5_kuepper(pot, qNFW)
-        qpred = np.sqrt(2.0 * FR / FZ)
-        frfzpred = (FR + 0.8) + (FZ + 1.83)
-        return (
-            -0.5 * (qpred - qmean) ** 2.0 / qerr ** 2.0
-            - 0.5 * (frfz - frfzpred) ** 2.0 / frfzerr ** 2.0
-        )
-
-    def sample_kuepper_flattening_post(nsamples, qmean, qerr):
-        params = [1.58, 37.9, 0.95]
-        funcargs = (qmean, qerr)
-        samples = bovy_mcmc.markovpy(
-            params,
-            0.2,
-            lambda x: kuepper_flattening_post(x, *funcargs),
-            (),
-            isDomainFinite=[[False, False] for ii in range(len(params))],
-            domain=[[0.0, 0.0] for ii in range(len(params))],
-            nsamples=nsamples,
-            nwalkers=2 * len(params),
-        )
-        samples = np.array(samples).T
-        return samples
-
-    def sample_kuepper_flatteningforce_post(
-        nsamples, qmean, qerr, frfz, frfzerr
-    ):
-        params = [1.58, 37.9, 0.95]
-        funcargs = (qmean, qerr, frfz, frfzerr)
-        samples = bovy_mcmc.markovpy(
-            params,
-            0.2,
-            lambda x: kuepper_flatteningforce_post(x, *funcargs),
-            (),
-            isDomainFinite=[[False, False] for ii in range(len(params))],
-            domain=[[0.0, 0.0] for ii in range(len(params))],
-            nsamples=nsamples,
-            nwalkers=2 * len(params),
-        )
-        samples = np.array(samples).T
-        return samples
-
-    def plot_kuepper_samples(samples):
-        labels = [
-            r"$M_{\mathrm{halo}} / (10^{12}\,M_\odot)$",
-            r"$q_z$",
-            r"$a / \mathrm{kpc}$",
-        ]
-        ranges = [(0.0, 4.0), (0.2, 1.8), (0.0, 100.0)]
-        corner.corner(
-            samples[[0, 2, 1]].T,
-            quantiles=[0.16, 0.5, 0.84],
-            labels=labels,
-            show_titles=True,
-            title_args={"fontsize": 12},
-            range=ranges,
-        )
 
     s = sample_kuepper_flattening_post(50000, 0.94, 0.05)
     plot_kuepper_samples(s)
