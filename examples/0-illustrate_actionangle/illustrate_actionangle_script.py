@@ -97,9 +97,9 @@ def create_frames(basefilename):
     times = numpy.linspace(0.0, 7.0, tfac * ndesired) * u.Gyr
 
     # Subsample
-    otimesIndices = (
-        numpy.arange(len(times)) / float(len(times) - 1)
-    ) ** 10 * (len(times) - 2)
+    otimesIndices = (numpy.arange(len(times)) / float(len(times) - 1)) ** 10 * (
+        len(times) - 2
+    )
     otimesIndices = numpy.unique(numpy.floor(otimesIndices).astype("int"))
     if len(otimesIndices) > ndesired:
         sfac = int(numpy.floor(len(otimesIndices) / float(ndesired)))
@@ -109,12 +109,7 @@ def create_frames(basefilename):
 
     # Compute all actions in the wrong potential
     acfs = aAF.actionsFreqsAngles(
-        o.R(times),
-        o.vR(times),
-        o.vT(times),
-        o.z(times),
-        o.vz(times),
-        o.phi(times),
+        o.R(times), o.vR(times), o.vT(times), o.z(times), o.vz(times), o.phi(times),
     )
     js = (acfs[0], acfs[1], acfs[2])
     danglerI = ((numpy.roll(acfs[6], -1) - acfs[6]) % (2.0 * numpy.pi))[:-1]
