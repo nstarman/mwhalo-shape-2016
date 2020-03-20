@@ -5,6 +5,10 @@ Pal5 Constrain Milky Way Halo Shape
     :target: http://www.astropy.org
     :alt: Powered by Astropy Badge
 
+.. image:: https://readthedocs.org/projects/pal5-constrain-mwhalo-shape/badge/?version=latest
+	:target: https://pal5-constrain-mwhalo-shape.readthedocs.io/en/latest/?badge=latest
+	:alt: Documentation Status
+
 Investigation into the shape of the inner DM halo with stream
 kinematics.
 

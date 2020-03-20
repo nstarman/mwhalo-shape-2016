@@ -19,13 +19,6 @@ Routing Listings
 """
 
 __author__ = "Nathaniel Starkman"
-# __copyright__ = "Copyright 2019, "
-# __credits__ = [""]
-# __license__ = "MIT"
-# __version__ = "0.0.0"
-# __maintainer__ = ""
-# __email__ = ""
-# __status__ = "Production"
 
 # __all__ = [
 #     ""
@@ -104,9 +97,6 @@ def make_symlinks(drct=_SCRIPT_DIR):
 # Command Line
 ###############################################################################
 
-if __name__ == "__main__":
-
-    make_symlinks("../")
 
 ###############################################################################
 # END
