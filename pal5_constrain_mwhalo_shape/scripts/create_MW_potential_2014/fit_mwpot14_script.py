@@ -150,6 +150,12 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     fpath = opts.fpath + "/" if not opts.fpath.endswith("/") else opts.fpath
     opath = opts.opath + "/" if not opts.opath.endswith("/") else opts.opath
 
+    if not os.path.exists(opts.opath):
+        os.makedirs(opts.opath)
+
+    if not os.path.exists(opts.fpath):
+        os.makedirs(opts.fpath)
+
     # ----------------------------------------------------------
     # Basic, Bovy (2015) fit with $c=1$
 

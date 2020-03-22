@@ -15,8 +15,6 @@ Routing Listings
 like_func
 pdf_func
 setup_potential
-force_pal5
-force_gd1
 mass60
 bulge_dispersion
 visible_dens
@@ -85,16 +83,11 @@ from .utils import (
     visible_dens,
 )
 
-from ..streams.pal5.pal5_util import force_pal5
-from ..streams.gd1.gd1_util import force_gd1
-
 from . import plot
 
 
 ###############################################################################
 # PARAMETERS
-
-# _REFR0, _REFV0 = REFR0, REFV0  # TODO deprecate
 
 PotentialType = Union[Potential, Sequence[Potential]]
 
@@ -149,6 +142,10 @@ def like_func(
     # --------------------------------------------------------------------
 
     from .potential import setup_potential  # TODO how do not internally?
+
+    # TODO use a more generic switcher so can use any stream
+    from ..streams.pal5.pal5_util import force_pal5
+    from ..streams.gd1.gd1_util import force_gd1
 
     # --------------------------------------------------------------------
     # Check ranges

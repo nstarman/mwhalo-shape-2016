@@ -15,8 +15,6 @@ Routing Listings
 like_func
 pdf_func
 setup_potential
-force_pal5
-force_gd1
 mass60
 bulge_dispersion
 visible_dens
@@ -88,9 +86,6 @@ from .utils import (
     bulge_dispersion,
     visible_dens,
 )
-
-from ..streams.pal5.pal5_util import force_pal5
-from ..streams.gd1.gd1_util import force_gd1
 
 from . import plot
 from .likelihood import pdf_func, like_func

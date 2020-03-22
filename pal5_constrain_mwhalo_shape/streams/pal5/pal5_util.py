@@ -57,6 +57,7 @@ __all__ = [
 import copy
 import signal
 import pickle
+from collections import namedtuple
 from typing import Optional, Union, Sequence, Tuple
 
 import numpy as np
@@ -94,6 +95,20 @@ from .utils import (
 
 REFR0 = mw_pot.REFR0
 REFV0 = mw_pot.REFV0
+
+TrackTuple = namedtuple(
+    "TrackTuple",
+    [
+        "trackRADec_trailing_out",
+        "trackRADec_leading_out",
+        "trackRAVlos_trailing_out",
+        "trackRAVlos_leading_out",
+        "width_out",
+        "length_out",
+        "interpcs",
+        "success",
+    ],
+)
 
 # typing
 PotentialType = Union[Potential, Sequence[Potential]]
@@ -248,7 +263,7 @@ def predict_pal5obs(
     trailing_only: bool = False,
     useTM: bool = False,
     verbose: bool = True,
-) -> Tuple:
+) -> TrackTuple:
     """Predict Pal 5 Observed.
 
     Function that generates the location and velocity of the Pal 5 stream,
@@ -325,7 +340,6 @@ def predict_pal5obs(
     success : bool
 
     """
-    from ...mw_pot import MWPotential2014Likelihood
 
     # First compute the model for all cs at which we will interpolate
     interpcs: list
@@ -373,7 +387,9 @@ def predict_pal5obs(
 
     while ii < ninterpcs:
         ic = interpcs[ii]
-        pot = mw_pot.setup_potential(pot_params, ic, False, False, ro, vo, b=b, pa=pa)
+        pot = mw_pot.setup_potential(
+            pot_params, ic, False, False, ro, vo, b=b, pa=pa
+        )
         success: bool = True
         # wentIn = ntries != 0
         # Make sure this doesn't run forever
@@ -399,7 +415,9 @@ def predict_pal5obs(
             success = False
         signal.alarm(0)
         # Check for calc. issues
-        if not success or (not this_useTM and looks_funny(tsdf_trailing, tsdf_leading)):
+        if not success or (
+            not this_useTM and looks_funny(tsdf_trailing, tsdf_leading)
+        ):
             # Try again with TM
             this_useTM = True
             this_nTrackChunks = 21  # might as well
@@ -464,9 +482,9 @@ def predict_pal5obs(
                 degree=True,
             )
         trackRAVlos_trailing[ii][:, 0] = trackRADec_trailing[ii][:, 0]
-        trackRAVlos_trailing[ii][:, 1] = sdf_trailing_varyc[ii]._interpolatedObsTrackLB[
-            :, 3
-        ]
+        trackRAVlos_trailing[ii][:, 1] = sdf_trailing_varyc[
+            ii
+        ]._interpolatedObsTrackLB[:, 3]
         if not trailing_only:
             trackRAVlos_leading[ii][:, 0] = trackRADec_leading[ii][:, 0]
             trackRAVlos_leading[ii][:, 1] = sdf_leading_varyc[
@@ -544,20 +562,24 @@ def predict_pal5obs(
             trackRAVlos_leading_out[:, ii, 1] = ip(c)
     # /for
 
-    ip = interpolate.InterpolatedUnivariateSpline(interpcs, width, k=interpk, ext=0)
+    ip = interpolate.InterpolatedUnivariateSpline(
+        interpcs, width, k=interpk, ext=0
+    )
     width_out = ip(c)
-    ip = interpolate.InterpolatedUnivariateSpline(interpcs, length, k=interpk, ext=0)
+    ip = interpolate.InterpolatedUnivariateSpline(
+        interpcs, length, k=interpk, ext=0
+    )
     length_out = ip(c)
 
-    return (
-        trackRADec_trailing_out,
-        trackRADec_leading_out,
-        trackRAVlos_trailing_out,
-        trackRAVlos_leading_out,
-        width_out,
-        length_out,
-        interpcs,
-        success,
+    return TrackTuple(
+        trackRADec_trailing_out=trackRADec_trailing_out,
+        trackRADec_leading_out=trackRADec_leading_out,
+        trackRAVlos_trailing_out=trackRAVlos_trailing_out,
+        trackRAVlos_leading_out=trackRAVlos_leading_out,
+        width_out=width_out,
+        length_out=length_out,
+        interpcs=interpcs,
+        success=success,
     )
 
 
@@ -567,7 +589,7 @@ def predict_pal5obs(
 # ----------------------------------------------------------------------------
 
 
-def looks_funny(tsdf_trailing, tsdf_leading) -> bool:
+def looks_funny(tsdf_trailing: streamdf, tsdf_leading: Optional[streamdf]) -> bool:
     """looks funny.
 
     Parameters
@@ -580,22 +602,26 @@ def looks_funny(tsdf_trailing, tsdf_leading) -> bool:
     bool
 
     """
+    isfunny = False
+
     radecs_trailing = bovy_coords.lb_to_radec(
         tsdf_trailing._interpolatedObsTrackLB[:, 0],
         tsdf_trailing._interpolatedObsTrackLB[:, 1],
         degree=True,
     )
-    if not tsdf_leading is None:
+
+    if tsdf_leading is not None:
         radecs_leading = bovy_coords.lb_to_radec(
             tsdf_leading._interpolatedObsTrackLB[:, 0],
             tsdf_leading._interpolatedObsTrackLB[:, 1],
             degree=True,
         )
+
     try:
         if radecs_trailing[0, 1] > 0.625:
-            return True
+            isfunny = True
         elif radecs_trailing[0, 1] < -0.1:
-            return True
+            isfunny = True
         elif np.any(
             (np.roll(radecs_trailing[:, 0], -1) - radecs_trailing[:, 0])[
                 (radecs_trailing[:, 0] < 250.0)
@@ -604,8 +630,8 @@ def looks_funny(tsdf_trailing, tsdf_leading) -> bool:
             ]
             < 0.0
         ):
-            return True
-        elif not tsdf_leading is None and np.any(
+            isfunny = True
+        elif tsdf_leading is not None and np.any(
             (np.roll(radecs_leading[:, 0], -1) - radecs_leading[:, 0])[
                 (radecs_leading[:, 0] > 225.0)
                 * (radecs_leading[:, 1] > -4.5)
@@ -613,20 +639,27 @@ def looks_funny(tsdf_trailing, tsdf_leading) -> bool:
             ]
             > 0.0
         ):
-            return True
-        elif False:  # np.isnan(width_trailing(tsdf_trailing)):
-            return True
-        elif np.isnan(tsdf_trailing.length(ang=True, coord="customra", threshold=0.3)):
-            return True
+            isfunny = True
+        elif False:  # np.isnan(width_trailing(tsdf_trailing)):  # FIXME
+            isfunny = True
+        elif np.isnan(
+            tsdf_trailing.length(ang=True, coord="customra", threshold=0.3)
+        ):
+            isfunny = True
         elif (
-            np.fabs(tsdf_trailing._dOdJpEig[0][2] / tsdf_trailing._dOdJpEig[0][1])
+            np.fabs(
+                tsdf_trailing._dOdJpEig[0][2] / tsdf_trailing._dOdJpEig[0][1]
+            )
             < 0.05
         ):
-            return True
+            isfunny = True
         else:
-            return False
+            isfunny = False
+
     except:
-        return True
+        isfunny = True
+
+    return isfunny
 
 
 # /def
@@ -682,7 +715,9 @@ def pal5_lnlike(
         # Interpolate trailing RA, Dec track
         sindx = np.argsort(trackRADec_trailing[nn, :, 0])
         ipdec = interpolate.InterpolatedUnivariateSpline(
-            trackRADec_trailing[nn, sindx, 0], trackRADec_trailing[nn, sindx, 1], k=1,
+            trackRADec_trailing[nn, sindx, 0],
+            trackRADec_trailing[nn, sindx, 1],
+            k=1,
         )  # to be on the safe side
         tindx = pos_radec[:, 0] > 229.0
         out[nn, 0] = -0.5 * np.sum(
@@ -695,7 +730,9 @@ def pal5_lnlike(
                 trackRADec_leading[nn, :, 0]
             )  # TODO throws error when 0!
             ipdec = interpolate.InterpolatedUnivariateSpline(
-                trackRADec_leading[nn, sindx, 0], trackRADec_leading[nn, sindx, 1], k=1,
+                trackRADec_leading[nn, sindx, 0],
+                trackRADec_leading[nn, sindx, 1],
+                k=1,
             )  # to be on the safe side
             tindx = pos_radec[:, 0] < 229.0
             out[nn, 1] = -0.5 * np.sum(
@@ -705,7 +742,9 @@ def pal5_lnlike(
         # Interpolate trailing RA,Vlos track
         sindx = np.argsort(trackRAVlos_trailing[nn, :, 0])
         ipvlos = interpolate.InterpolatedUnivariateSpline(
-            trackRAVlos_trailing[nn, sindx, 0], trackRAVlos_trailing[nn, sindx, 1], k=1,
+            trackRAVlos_trailing[nn, sindx, 0],
+            trackRAVlos_trailing[nn, sindx, 1],
+            k=1,
         )  # to be on the safe side
         tindx = rvel_ra[:, 0] > 230.5
         out[nn, 2] = -0.5 * np.sum(
@@ -740,7 +779,7 @@ def setup_sdf(
     trailing_only: bool = False,
     verbose: bool = True,
     useTM: bool = True,
-):
+) -> Tuple[Optional[streamdf], Optional[streamdf]]:
     """Setup Stream Distribution Function.
 
     Parameters
@@ -767,7 +806,7 @@ def setup_sdf(
 
     Returns
     -------
-    sdf_trailing, sdf_leading: ndarray or None
+    sdf_trailing, sdf_leading: streamdf or None
 
     """
     if isob is None:
@@ -795,7 +834,9 @@ def setup_sdf(
     if verbose:
         print(pot[2]._c, isob)
     if np.fabs(pot[2]._b - 1.0) > 0.05:
-        aAI = actionAngleIsochroneApprox(pot=pot, b=isob, tintJ=1000.0, ntintJ=30000)
+        aAI = actionAngleIsochroneApprox(
+            pot=pot, b=isob, tintJ=1000.0, ntintJ=30000
+        )
     else:
         aAI = actionAngleIsochroneApprox(pot=pot, b=isob)
     if useTM:
@@ -823,7 +864,9 @@ def setup_sdf(
     try:
         sdf_trailing = streamdf(sigv / vo, **trailing_kwargs)
     except np.linalg.LinAlgError:
-        sdf_trailing = streamdf(sigv / vo, nTrackIterations=0, **trailing_kwargs)
+        sdf_trailing = streamdf(
+            sigv / vo, nTrackIterations=0, **trailing_kwargs
+        )
 
     if trailing_only:
 
@@ -851,7 +894,9 @@ def setup_sdf(
         try:
             sdf_leading = streamdf(sigv / vo, **leading_kwargs)
         except np.linalg.LinAlgError:
-            sdf_leading = streamdf(sigv / vo, nTrackIterations=0, **leading_kwargs)
+            sdf_leading = streamdf(
+                sigv / vo, nTrackIterations=0, **leading_kwargs
+            )
 
     return sdf_trailing, sdf_leading
 
@@ -864,19 +909,19 @@ def setup_sdf(
 
 def pal5_dpmguess(
     pot: PotentialType,
-    doras=None,
-    dodecs=None,
-    dovloss=None,
-    dmin=21.0,
-    dmax=25.0,
-    dstep=0.02,
-    pmmin=-0.36,
-    pmmax=0.36,
-    pmstep=0.01,
-    alongbfpm=False,
-    ro=REFR0,
-    vo=REFV0,
-):
+    doras: Optional[float]=None,
+    dodecs: Optional[float]=None,
+    dovloss: Optional[float]=None,
+    dmin: float=21.0,
+    dmax: float=25.0,
+    dstep: float=0.02,
+    pmmin: float=-0.36,
+    pmmax: float=0.36,
+    pmstep: float=0.01,
+    alongbfpm: bool=False,
+    ro: float=REFR0,
+    vo: float=REFV0,
+) -> tuple:
     """pal5_dpmguess.
 
     Parameters
@@ -925,6 +970,7 @@ def pal5_dpmguess(
     ds = np.arange(dmin, dmax + dstep / 2.0, dstep)
     pmoffs = np.arange(pmmin, pmmax + pmstep / 2.0, pmstep)
     lnl = np.zeros((len(ds), len(pmoffs)))
+
     pos_radec, rvel_ra = pal5_data_total()
 
     print("Determining good distance and parallel proper motion...")
@@ -936,7 +982,14 @@ def pal5_dpmguess(
             else:
                 pm = pmoff
             progt = Orbit(
-                [229.11, 0.3, d + 0.3, -2.27 + pm, -2.22 + pm * 2.257 / 2.296, -58.5,],
+                [
+                    229.11,
+                    0.3,
+                    d + 0.3,
+                    -2.27 + pm,
+                    -2.22 + pm * 2.257 / 2.296,
+                    -58.5,
+                ],
                 radec=True,
                 ro=ro,
                 vo=vo,
@@ -980,6 +1033,9 @@ def pal5_dpmguess(
                 - 0.5 * pm ** 2.0 / 0.186 ** 2.0
             )  # pm measurement
 
+        # /for
+    # /for
+
     bestd = ds[np.unravel_index(np.argmax(lnl), lnl.shape)[0]]
 
     if alongbfpm:
@@ -990,6 +1046,7 @@ def pal5_dpmguess(
         )
     else:
         bestpmoff = pmoffs[np.unravel_index(np.argmax(lnl), lnl.shape)[1]]
+    # /if
 
     return bestd, bestpmoff, lnl, ds, pmoffs
 

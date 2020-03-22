@@ -3,13 +3,13 @@
 
 # ----------------------------------------------------------------------------
 #
-# TITLE   : Scripts
+# TITLE   : Create MW Potential Scripts
 # AUTHOR  : Jo Bovy and Nathaniel Starkman
 # PROJECT : Pal 5 update MW potential constraints
 #
 # ----------------------------------------------------------------------------
 
-"""Scripts.
+"""Create MW Potential Scripts.
 
 Routine Listings
 ----------------
@@ -42,6 +42,7 @@ __all__ = [
 
 # GENERAL
 
+import os
 import argparse
 import copy
 from typing import Optional
@@ -59,9 +60,9 @@ from .fit_potential_combo_pal5_gd1_script import (
 from . import script_util as su
 
 
-###############################################################################
-# Command Line
-###############################################################################
+##############################################################################
+# COMMAND LINE
+##############################################################################
 
 
 def make_parser(inheritable=False):
@@ -127,6 +128,14 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     else:
         parser = make_parser()
         opts = parser.parse_args(args)
+
+    # ---------------------------------
+
+    if not os.path.exists(opts.opath):
+        os.makedirs(opts.opath)
+
+    if not os.path.exists(opts.fpath):
+        os.makedirs(opts.fpath)
 
     # ---------------------------------
 

@@ -153,6 +153,12 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     fpath = opts.fpath + "/" if not opts.fpath.endswith("/") else opts.fpath
     opath = opts.opath + "/" if not opts.opath.endswith("/") else opts.opath
 
+    if not os.path.exists(opts.opath):
+        os.makedirs(opts.opath)
+
+    if not os.path.exists(opts.fpath):
+        os.makedirs(opts.fpath)
+
     # -----------------------
     # Adding in the force measurements from Pal 5 *and* GD-1; also fitting
     # $R_0$ and $V_c(R_0)$

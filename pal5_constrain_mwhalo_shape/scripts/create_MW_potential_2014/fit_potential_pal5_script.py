@@ -127,7 +127,9 @@ def make_parser(inheritable=False):
 # ------------------------------------------------------------------------
 
 
-def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None):
+def main(
+    args: Optional[list] = None, opts: Optional[argparse.Namespace] = None
+):
     """Fit Pal5 to MW Potential Script Function.
 
     Parameters
@@ -145,6 +147,12 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
 
     fpath = opts.fpath + "/" if not opts.fpath.endswith("/") else opts.fpath
     opath = opts.opath + "/" if not opts.opath.endswith("/") else opts.opath
+
+    if not os.path.exists(opts.opath):
+        os.makedirs(opts.opath)
+
+    if not os.path.exists(opts.fpath):
+        os.makedirs(opts.fpath)
 
     # -------------------------------------------------------------------------
     # Adding in the force measurements from Pal 5
@@ -200,7 +208,9 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
         cs = np.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
-            dum = mw_pot.fit(fitc=False, c=c, plots=fpath + "mwpot14varyc-bf-fit.pdf")
+            dum = mw_pot.fit(
+                fitc=False, c=c, plots=fpath + "mwpot14varyc-bf-fit.pdf"
+            )
             bf_params.append(dum[0])
         save_pickles(bf_savefilename, cs, bf_params)
 
@@ -214,7 +224,11 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
         ytick_labelsize=15.0,
     )
     su.plot_mcmc_c(
-        s, True, cs, bf_params, savefig=fpath + "mwpot14varyc-bf-pal5-dependence.pdf",
+        s,
+        True,
+        cs,
+        bf_params,
+        savefig=fpath + "mwpot14varyc-bf-pal5-dependence.pdf",
     )
 
     # -----------------------

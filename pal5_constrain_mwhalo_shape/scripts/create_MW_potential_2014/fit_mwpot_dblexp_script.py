@@ -47,7 +47,7 @@ import matplotlib.pyplot as plt
 from galpy.util import (
     bovy_plot,
     save_pickles,
-)  # bovy_conversion
+)
 
 
 # PROJECT-SPECIFIC
@@ -139,6 +139,12 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
 
     fpath = opts.fpath + "/" if not opts.fpath.endswith("/") else opts.fpath
     opath = opts.opath + "/" if not opts.opath.endswith("/") else opts.opath
+
+    if not os.path.exists(opts.opath):
+        os.makedirs(opts.opath)
+
+    if not os.path.exists(opts.fpath):
+        os.makedirs(opts.fpath)
 
     # -------------------------------------------------------------------------
     # Using an exponential disk instead of a Miyamoto-Nagai disk
