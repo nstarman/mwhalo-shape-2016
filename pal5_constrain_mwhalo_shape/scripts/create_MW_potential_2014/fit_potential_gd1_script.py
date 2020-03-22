@@ -59,11 +59,7 @@ from galpy.util import (
 
 # PROJECT-SPECIFIC
 
-from ...mw_pot import (
-    fit as fit_pot,
-    sample as sample_pot,
-    plot_samples,
-)
+from ... import mw_pot
 from . import script_util as su
 
 
@@ -170,7 +166,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
     else:
-        s = sample_pot(
+        s = mw_pot.sample(
             nsamples=100000,
             params=p_b15_gd1_voro[0],
             fitc=True,
@@ -184,7 +180,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # -----------------------
 
     plt.figure()
-    plot_samples(
+    mw_pot.plot_samples(
         s,
         True,
         True,
@@ -203,7 +199,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
         cs = np.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
-            dum = fit_pot(fitc=False, c=c, plots=fpath + "mwpot14varyc-bf-fit.pdf")
+            dum = mw_pot.fit(fitc=False, c=c, plots=fpath + "mwpot14varyc-bf-fit.pdf")
             bf_params.append(dum[0])
         save_pickles(bf_savefilename, cs, bf_params)
 

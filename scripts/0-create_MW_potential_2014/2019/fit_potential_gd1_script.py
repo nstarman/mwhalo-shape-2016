@@ -19,14 +19,6 @@ incldued for each fit. Figures 1 and 9 in the paper are produced by this
 notebook. Figure 10 of the best-fit force field and the constraints from disk
 stars, Pal 5, and GD-1 data is also made by this notebook.
 
-Routing Listings
-----------------
-fit
-sample
-sample_multi
-plot_samples
-plot_mcmc_c
-
 """
 
 __author__ = "Jo Bovy"
@@ -62,11 +54,7 @@ from galpy.util import (
 # fmt: off
 import sys; sys.path.insert(0, "../../../")
 # fmt: on
-from pal5_constrain_mwhalo_shape.mw_pot import (
-    fit as fit_pot,
-    sample as sample_pot,
-    plot_samples,
-)
+from pal5_constrain_mwhalo_shape import mw_pot
 import pal5_constrain_mwhalo_shape.scripts.create_MW_potential_2014.script_util as su
 
 
@@ -158,7 +146,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # Adding in the force measurements from GD-1; also fitting $R_0$ and $V_c(R_0)$
 
     plt.figure(figsize=(16, 5))
-    p_b15_gd1_voro = fit_pot(
+    p_b15_gd1_voro = mw_pot.fit(
         fitc=True,
         c=None,
         addgd1=True,
@@ -174,7 +162,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
     else:
-        s = sample_pot(
+        s = mw_pot.sample(
             nsamples=100000,
             params=p_b15_gd1_voro[0],
             fitc=True,
@@ -188,7 +176,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # -----------------------
 
     plt.figure()
-    plot_samples(
+    mw_pot.plot_samples(
         s,
         True,
         True,
@@ -207,7 +195,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
         cs = np.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
-            dum = fit_pot(fitc=False, c=c, plots=fpath + "mwpot14varyc-bf-fit.pdf")
+            dum = mw_pot.fit(fitc=False, c=c, plots=fpath + "mwpot14varyc-bf-fit.pdf")
             bf_params.append(dum[0])
         save_pickles(bf_savefilename, cs, bf_params)
 
@@ -281,7 +269,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
 
 if __name__ == "__main__":
 
-    main(sys.argv[1:])
+    main(args=None, opts=None)
 
 # /if
 

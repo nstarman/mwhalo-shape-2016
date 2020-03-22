@@ -76,7 +76,6 @@ from galpy.potential import Potential
 # PROJECT-SPECIFIC
 
 from ... import mw_pot
-from ...mw_pot.utils import REFR0, REFV0
 from ...utils.exceptions import timeout_handler
 
 from . import data, utils
@@ -92,6 +91,9 @@ from .utils import (
 
 ###############################################################################
 # PARAMETERS
+
+REFR0 = mw_pot.REFR0
+REFV0 = mw_pot.REFV0
 
 # typing
 PotentialType = Union[Potential, Sequence[Potential]]
@@ -257,7 +259,7 @@ def predict_pal5obs(
     ----------
     pot_params: array
         parameters of a potential model
-        (see MWPotential2014Likelihood.setup_potential; only the basic
+        (see mw_pot.setup_potential; only the basic
          parameters of the disk and halo are used,
          flattening is specified separately)
     c : float
@@ -371,9 +373,7 @@ def predict_pal5obs(
 
     while ii < ninterpcs:
         ic = interpcs[ii]
-        pot = MWPotential2014Likelihood.setup_potential(
-            pot_params, ic, False, False, ro, vo, b=b, pa=pa
-        )
+        pot = mw_pot.setup_potential(pot_params, ic, False, False, ro, vo, b=b, pa=pa)
         success: bool = True
         # wentIn = ntries != 0
         # Make sure this doesn't run forever

@@ -68,12 +68,7 @@ from typing import Optional
 # fmt: off
 import sys; sys.path.insert(0, "../../../")
 # fmt: on
-from pal5_constrain_mwhalo_shape.mw_pot import (
-    fit as fit_pot,
-    sample as sample_pot,
-    sample_multi as sample_pot_multi,
-    plot_samples,
-)
+from pal5_constrain_mwhalo_shape import mw_pot
 import pal5_constrain_mwhalo_shape.scripts.create_MW_potential_2014.script_util as su
 
 
@@ -168,14 +163,16 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # Using the Clemens CO terminal-velocity data:
 
     plt.figure(figsize=(16, 5))
-    p_b15 = fit_pot(fitc=False, c=1.0, plots=fpath + "Clemens-c_1.pdf")
+    p_b15 = mw_pot.fit(fitc=False, c=1.0, plots=fpath + "Clemens-c_1.pdf")
     plt.close()
 
     # -----------------------
     # Using the McClure-Griffiths & Dickey HI terminal-velocity data instead
 
     plt.figure(figsize=(16, 5))
-    p_b15_mc16 = fit_pot(fitc=False, c=1.0, mc16=True, plots=fpath + "McClure-c_1.pdf")
+    p_b15_mc16 = mw_pot.fit(
+        fitc=False, c=1.0, mc16=True, plots=fpath + "McClure-c_1.pdf"
+    )
     plt.close()
 
     # We ran the initial analysis with Clemens, which we keep here, until we
@@ -189,13 +186,13 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # -----------------------
 
     plt.figure(figsize=(16, 5))
-    p_b15_cp5 = fit_pot(fitc=False, c=0.5, plots=fpath + "Clemens-c_0p5.pdf")
+    p_b15_cp5 = mw_pot.fit(fitc=False, c=0.5, plots=fpath + "Clemens-c_0p5.pdf")
     plt.close()
 
     # -----------------------
 
     plt.figure(figsize=(16, 5))
-    p_b15_c1p5 = fit_pot(fitc=False, c=1.5, plots=fpath + "Clemens-c_1p5.pdf")
+    p_b15_c1p5 = mw_pot.fit(fitc=False, c=1.5, plots=fpath + "Clemens-c_1p5.pdf")
 
     # All look pretty similar...
 
@@ -210,7 +207,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
         cs = np.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
-            dum = fit_pot(fitc=False, c=c, plots=fpath + "mwpot14varyc-bf-fit.pdf",)
+            dum = mw_pot.fit(fitc=False, c=c, plots=fpath + "mwpot14varyc-bf-fit.pdf",)
             bf_params.append(dum[0])
         save_pickles(bf_savefilename, cs, bf_params)
 
@@ -218,7 +215,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # Fits with free $c$
 
     plt.figure(figsize=(16, 5))
-    p_b15_cfree = fit_pot(fitc=True, c=None, plots=fpath + "Clemens-c_free.pdf")
+    p_b15_cfree = mw_pot.fit(fitc=True, c=None, plots=fpath + "Clemens-c_free.pdf")
 
     # -----------------------
 
@@ -227,7 +224,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
     else:
-        s = sample_pot(
+        s = mw_pot.sample(
             nsamples=100000,
             params=p_b15_cfree[0],
             fitc=True,
@@ -240,7 +237,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # -----------------------
 
     plt.figure()
-    plot_samples(s, True, False, savefig=fpath + "varyc-samples-corner.pdf")
+    mw_pot.plot_samples(s, True, False, savefig=fpath + "varyc-samples-corner.pdf")
 
     # -----------------------
 
@@ -280,7 +277,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # Also fitting $R_0$ and $V_c(R_0)$
 
     plt.figure(figsize=(16, 5))
-    p_b15_voro = fit_pot(
+    p_b15_voro = mw_pot.fit(
         fitc=True, c=None, fitvoro=True, plots=fpath + "varyc-fitvoro-samples.pdf",
     )
 
@@ -291,7 +288,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
     else:
-        s = sample_pot(
+        s = mw_pot.sample(
             nsamples=100000,
             params=p_b15_voro[0],
             fitc=True,
@@ -304,7 +301,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # -----------------------
 
     plt.figure()
-    plot_samples(
+    mw_pot.plot_samples(
         s, True, True, savefig=fpath + "varyc-fitvoro-samples-corner.pdf",
     )
 

@@ -48,36 +48,6 @@ PotentialType = Union[Potential, Sequence[Potential]]
 ###############################################################################
 
 
-def _get_data() -> tuple:
-
-    # Read the necessary data
-    # First read the surface densities
-    surfrs, kzs, kzerrs = data.readBovyRix13kzdata()
-
-    # Then the terminal velocities
-    dsinl = 0.125
-    cl_glon, cl_vterm, cl_corr = data.readClemens(dsinl=dsinl)
-    mc_glon, mc_vterm, mc_corr = data.readMcClureGriffiths07(dsinl=dsinl, bin=True)
-    mc16_glon, mc16_vterm, mc16_corr = data.readMcClureGriffiths16(
-        dsinl=dsinl, bin=True
-    )
-
-    termdata = (cl_glon, cl_vterm, cl_corr, mc_glon, mc_vterm, mc_corr)
-    termdata_mc16 = (
-        mc16_glon,
-        mc16_vterm,
-        mc16_corr,
-        mc_glon,
-        mc_vterm,
-        mc_corr,
-    )
-
-    return (surfrs, kzs, kzerrs), termdata, termdata_mc16
-
-
-# /def
-
-
 def _get_data_and_make_funcargs(
     fitc, ro, vo, fitvoro, c, dblexp, addpal5, addgd1, mc16, addgas
 ) -> tuple:
@@ -92,13 +62,13 @@ def _get_data_and_make_funcargs(
     (surfrs, kzs, kzerrs), termdata, termdata_mc16, funcargs
 
     """
-    (surfrs, kzs, kzerrs), termdata, termdata_mc16 = _get_data()
+    kzdata, termdata, termdata_mc16 = data.get_all_data()
 
     funcargs = [
         c,
-        surfrs,
-        kzs,
-        kzerrs,
+        kzdata.surfrs,
+        kzdata.kzs,
+        kzdata.kzerrs,
         termdata,
         7.0,
         fitc,
@@ -114,7 +84,7 @@ def _get_data_and_make_funcargs(
     if mc16:  # replace termdata
         funcargs[4] = termdata_mc16
 
-    return (surfrs, kzs, kzerrs), termdata, termdata_mc16, funcargs
+    return kzdata, termdata, termdata_mc16, funcargs
 
 
 # /def

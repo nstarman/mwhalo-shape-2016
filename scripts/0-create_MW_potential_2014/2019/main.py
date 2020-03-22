@@ -79,9 +79,7 @@ def make_parser(inheritable=False):
 # -------------------------------------------------------------------
 
 
-def main(
-    args: Optional[list] = None, opts: Optional[argparse.Namespace] = None
-):
+def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None):
     """Run the Full create_MW_potential_2014 set of scripts.
 
     Parameters

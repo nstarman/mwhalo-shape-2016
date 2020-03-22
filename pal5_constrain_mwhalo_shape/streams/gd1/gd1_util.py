@@ -50,7 +50,7 @@ from galpy.util import bovy_conversion
 
 # PROJECT-SPECIFIC
 
-from ...mw_pot import MWPotential2014Likelihood, REFR0, REFV0
+from ... import mw_pot
 
 from .data import gd1_data_2016, gd1_data_total
 from .utils import phi12_to_lb_6d, convert_track_lb_to_phi12, _TKOP, force_gd1
@@ -58,6 +58,9 @@ from .utils import phi12_to_lb_6d, convert_track_lb_to_phi12, _TKOP, force_gd1
 
 ###############################################################################
 # PARAMETERS
+
+REFR0 = mw_pot.REFR0
+REFV0 = mw_pot.REFV0
 
 
 ###############################################################################
@@ -87,7 +90,7 @@ def predict_gd1obs(
     logpot: bool = False,
     verbose: bool = True,
 ):
-    """Predict GD1-observed
+    """Predict GD1-observed.
 
     Function that generates the location and velocity of the GD-1 stream,
     its width, and its length for a given potential
@@ -97,7 +100,7 @@ def predict_gd1obs(
     ----------
     pot_params
         array with the parameters of a potential model
-        (see MWPotential2014Likelihood.setup_potential;
+        (see mw_pot.setup_potential;
          only the basic parameters of the disk and halo are used,
          flattening is specified separately)
     c
@@ -140,7 +143,7 @@ def predict_gd1obs(
         (True) print messages
 
     Notes
-    ------
+    -----
     2016-08-12 - Written - Bovy (UofT)
 
     """
@@ -155,9 +158,7 @@ def predict_gd1obs(
     if logpot:
         pot = potential.LogarithmicHaloPotential(normalize=1.0, q=c)
     else:
-        pot = MWPotential2014Likelihood.setup_potential(
-            pot_params, c, False, False, ro, vo, b=b, pa=pa
-        )
+        pot = mw_pot.setup_potential(pot_params, c, False, False, ro, vo, b=b, pa=pa)
     success: bool = True
     this_useTM = useTM
 

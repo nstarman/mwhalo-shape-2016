@@ -9,6 +9,7 @@ __author__ = ["Jo Bovy", "Nathaniel Starkman"]
 # IMPORTS
 
 # GENERAL
+
 import os
 import pickle
 import numpy as np
@@ -24,6 +25,7 @@ from galpy.util.bovy_coords import lb_to_radec
 from galpy.util import bovy_plot
 
 # CUSTOM
+
 from astroPHD.util import ObjDict
 
 # from astroPHD.util.multi import parallel_map
@@ -31,12 +33,16 @@ from astroPHD.util import ObjDict
 
 
 # PROJECT-SPECIFIC
-from .mw_pot import MWPotential2014Likelihood, REFR0, REFV0
+
+from . import mw_pot
 from .streams.pal5 import pal5_util
 
 
 ###############################################################################
 # PARAMETERS
+
+REFR0 = mw_pot.REFR0
+REFV0 = mw_pot.REFV0
 
 # Some parameters defining the proper motion direction in Bovy et al. (2016)
 _PMDECPAR = 2.257 / 2.296
@@ -208,9 +214,7 @@ def setup_model(
     """
     # Setup potential
     tvo = chain_params[1] * refV0  # TODO should this be from pal5_util?
-    pot = MWPotential2014Likelihood.setup_potential(
-        potparams, chain_params[0], False, False, refR0, tvo
-    )
+    pot = mw_pot.setup_potential(potparams, chain_params[0], False, False, refR0, tvo)
 
     # Now compute the stream model for this setup
     dist = chain_params[2] * 22.0
@@ -501,6 +505,7 @@ def setup_models_in_chain(
             combined track
         .track_interp : function
             interpolation function taking observed ra to streamdf dec
+
     """
     # logger.newsection(f"Setting up chain, model, track #{index}:\n", div="=")
 

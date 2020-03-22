@@ -276,4 +276,35 @@ def readallMcClureGriffiths(dsinl: float = 0.5 / 8.0, bin: bool = True) -> Tuple
 
 
 ##############################################################################
+
+
+def get_all_data() -> tuple:
+
+    # Read the necessary data
+    # First read the surface densities
+    kzdata: BovyRix13Tuple = readBovyRix13kzdata()
+
+    # Then the terminal velocities
+    dsinl = 0.125
+    cl_glon, cl_vterm, cl_corr = readClemens(dsinl=dsinl)
+    mc_glon, mc_vterm, mc_corr = readMcClureGriffiths07(dsinl=dsinl, bin=True)
+    mc16_glon, mc16_vterm, mc16_corr = readMcClureGriffiths16(dsinl=dsinl, bin=True)
+
+    termdata = (cl_glon, cl_vterm, cl_corr, mc_glon, mc_vterm, mc_corr)
+    termdata_mc16 = (
+        mc16_glon,
+        mc16_vterm,
+        mc16_corr,
+        mc_glon,
+        mc_vterm,
+        mc_corr,
+    )
+
+    return kzdata, termdata, termdata_mc16
+
+
+# /def
+
+
+##############################################################################
 # END

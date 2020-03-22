@@ -36,7 +36,8 @@ __credits__ = ["Jo Bovy"]
 # PROJECT-SPECIFIC
 
 from .utils import REFR0, REFV0
-from .MWPotential2014Likelihood import (
+from .likelihood import like_func
+from .potential import (
     fit,
     sample,
     sample_multi,

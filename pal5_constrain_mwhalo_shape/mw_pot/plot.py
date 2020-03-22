@@ -15,17 +15,15 @@ description
 
 Routine Listings
 ----------------
+plotRotcurve
+plotKz
+pltTerm
+plotPot
+plotDens
+plot_samples
+plotFit
 
 """
-
-__author__ = ""
-# __copyright__ = "Copyright 2019, "
-# __credits__ = [""]
-# __license__ = "MIT"
-# __version__ = "0.0.0"
-# __maintainer__ = ""
-# __email__ = ""
-# __status__ = "Production"
 
 # __all__ = [
 #     ""
@@ -41,11 +39,12 @@ from typing import Union, Sequence
 
 import numpy as np
 
-import matplotlib.pyplot as plt
-
 from galpy import potential
 from galpy.potential import Potential
 from galpy.util import bovy_plot, bovy_conversion
+
+import matplotlib.pyplot as plt
+import corner
 
 
 # PROJECT-SPECIFIC
@@ -363,6 +362,59 @@ def plot_samples(
 
 # /def
 
+
+# --------------------------------------------------------------------------
+
+
+def plotFit(
+    pot, kzdata, termdata, ro=REFR0, vo=REFV0, suptitle=None, savefig=None,
+):
+    """Plot Fit to Potential.
+
+    Parameters
+    ----------
+    pot : Potential or list of Potential
+    kzdata : tuple
+    termdata : tuple
+    ro : float, optional
+    vo : float, optional
+    suptitle : str, optional
+    savefig : str, optional
+
+    Returns
+    -------
+    fig : Figure
+
+    """
+    fig = plt.Figure()
+    plt.subplot(1, 3, 1)
+    plotRotcurve(pot=pot)
+    plt.subplot(1, 3, 2)
+    plotKz(
+        pot=pot,
+        surfrs=kzdata.surfrs,
+        kzs=kzdata.kzs,
+        kzerrs=kzdata.kzerrs,
+        ro=ro,
+        vo=vo,
+    )
+    plt.subplot(1, 3, 3)
+    plotTerm(pot=pot, termdata=termdata, ro=ro, vo=vo)
+
+    plt.suptitle(suptitle)
+
+    fig.tight_layout()
+
+    if savefig is not None:
+        plt.savefig(savefig)
+
+    return fig
+
+
+# /def
+
+
+# --------------------------------------------------------------------------
 
 ###############################################################################
 # END

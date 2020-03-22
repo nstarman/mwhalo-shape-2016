@@ -73,7 +73,6 @@ from matplotlib.cbook import MatplotlibDeprecationWarning
 import sys; sys.path.insert(0, '../../../')
 # fmt: on
 from pal5_constrain_mwhalo_shape import mw_pot
-from pal5_constrain_mwhalo_shape.mw_pot import MWPotential2014Likelihood
 from pal5_constrain_mwhalo_shape.streams.pal5 import pal5_util
 
 
@@ -206,7 +205,7 @@ def fiducial_model(
         -0.01928001,
     ]
 
-    pot = MWPotential2014Likelihood.setup_potential(p_b15, 1.0, False, False, ro, vo)
+    pot = mw_pot.setup_potential(p_b15, 1.0, False, False, ro, vo)
 
     prog = Orbit(
         [229.018, -0.124, 23.2, -2.296, -2.257, -58.7],
@@ -405,9 +404,7 @@ def model_vary_c_along_the_best_fit_line():
     times = np.linspace(0.0, 3.0, 101)
 
     for bp, c in zip(bf_params, cs):
-        pot = MWPotential2014Likelihood.setup_potential(
-            bp, c, False, False, REFR0, REFV0
-        )
+        pot = mw_pot.setup_potential(bp, c, False, False, REFR0, REFV0)
         prog = Orbit(
             [229.018, -0.124, 23.2, -2.296, -2.257, -58.7],
             radec=True,
@@ -472,9 +469,7 @@ def model_vary_b_for_c_1_pa_0():
     bs = np.arange(0.5, 2.1, 0.1)
 
     for b in bs:
-        pot = MWPotential2014Likelihood.setup_potential(
-            p_b15, 1.0, False, False, REFR0, REFV0, b=b
-        )
+        pot = mw_pot.setup_potential(p_b15, 1.0, False, False, REFR0, REFV0, b=b)
         prog = Orbit(
             [229.018, -0.124, 23.2, -2.296, -2.257, -58.7],
             radec=True,
@@ -537,7 +532,7 @@ def model_vary_b_for_c_1_pa_45():
     times = np.linspace(0.0, 3.0, 101)
     bs = np.arange(0.5, 2.1, 0.1)
     for b in bs:
-        pot = MWPotential2014Likelihood.setup_potential(
+        pot = mw_pot.setup_potential(
             p_b15, 1.0, False, False, REFR0, REFV0, b=b, pa=np.pi / 4.0
         )
         prog = Orbit(
@@ -603,9 +598,7 @@ def model_vary_d():
     times = np.linspace(0.0, 3.0, 101)
     ds = np.linspace(22.5, 24.5, 101)
     for d in ds:
-        pot = MWPotential2014Likelihood.setup_potential(
-            p_b15, 1.0, False, False, REFR0, REFV0
-        )
+        pot = mw_pot.setup_potential(p_b15, 1.0, False, False, REFR0, REFV0)
         prog = Orbit(
             [229.018, -0.124, d, -2.296, -2.257, -58.7],
             radec=True,
@@ -667,9 +660,7 @@ def model_vary_pm_pll():
     times = np.linspace(0.0, 2.5, 101)
     pms = np.linspace(-0.3, 0.3, 101)
     for pm in pms:
-        pot = MWPotential2014Likelihood.setup_potential(
-            p_b15, 1.0, False, False, REFR0, REFV0
-        )
+        pot = mw_pot.setup_potential(p_b15, 1.0, False, False, REFR0, REFV0)
         prog = Orbit(
             [229.018, -0.124, 23.2, -2.296 + pm, -2.257 + 2.257 / 2.296 * pm, -58.7,],
             radec=True,
@@ -733,9 +724,7 @@ def model_vary_pm_perp():
     times = np.linspace(0.0, 2.5, 101)
     pms = np.linspace(-0.3, 0.3, 101)
     for pm in pms:
-        pot = MWPotential2014Likelihood.setup_potential(
-            p_b15, 1.0, False, False, REFR0, REFV0
-        )
+        pot = mw_pot.setup_potential(p_b15, 1.0, False, False, REFR0, REFV0)
         prog = Orbit(
             [229.018, -0.124, 23.2, -2.296 + pm, -2.257 - 2.296 / 2.257 * pm, -58.7,],
             radec=True,

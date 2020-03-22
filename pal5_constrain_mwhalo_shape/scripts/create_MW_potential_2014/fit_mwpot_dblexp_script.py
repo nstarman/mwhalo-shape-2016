@@ -52,12 +52,7 @@ from galpy.util import (
 
 # PROJECT-SPECIFIC
 
-from ...mw_pot import (
-    fit as fit_pot,
-    sample as sample_pot,
-    sample_multi as sample_pot_multi,
-    plot_samples,
-)
+from ... import mw_pot
 from . import script_util as su
 
 
@@ -152,25 +147,29 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # $c=1$:
 
     plt.figure(figsize=(16, 5))
-    p_exp = fit_pot(fitc=False, c=1.0, dblexp=True, plots=fpath + "Clemens-c_1.pdf",)
+    p_exp = mw_pot.fit(fitc=False, c=1.0, dblexp=True, plots=fpath + "Clemens-c_1.pdf",)
 
     # -----------------------
     # $c=0.5$:
 
     plt.figure(figsize=(16, 5))
-    p_exp = fit_pot(fitc=False, c=0.5, dblexp=True, plots=fpath + "Clemens-c_0p5.pdf",)
+    p_exp = mw_pot.fit(
+        fitc=False, c=0.5, dblexp=True, plots=fpath + "Clemens-c_0p5.pdf",
+    )
 
     # -----------------------
     # $c=1.5$:
 
     plt.figure(figsize=(16, 5))
-    p_exp = fit_pot(fitc=False, c=1.5, dblexp=True, plots=fpath + "Clemens-c_1p5.pdf",)
+    p_exp = mw_pot.fit(
+        fitc=False, c=1.5, dblexp=True, plots=fpath + "Clemens-c_1p5.pdf",
+    )
 
     # -----------------------
     # leave c free
 
     plt.figure(figsize=(16, 5))
-    p_exp_cfree = fit_pot(
+    p_exp_cfree = mw_pot.fit(
         fitc=True, c=None, dblexp=True, plots=fpath + "Clemens-c_free.pdf",
     )
 
@@ -185,7 +184,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
         cs = np.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
-            dum = fit_pot(
+            dum = mw_pot.fit(
                 fitc=False,
                 c=c,
                 dblexp=True,
@@ -201,7 +200,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
     else:
-        s = sample_pot(
+        s = mw_pot.sample(
             nsamples=100000,
             params=p_exp_cfree[0],
             fitc=True,
@@ -214,7 +213,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # -----------------------
 
     plt.figure()
-    plot_samples(
+    mw_pot.plot_samples(
         s, True, False, savefig=fpath + "varyc-dblexp-samples-corner.pdf",
     )
 
@@ -257,7 +256,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # Also fitting $R_0$ and $V_c(R_0)$
 
     plt.figure(figsize=(16, 5))
-    p_exp_cfree_voro = fit_pot(
+    p_exp_cfree_voro = mw_pot.fit(
         fitc=True,
         c=None,
         dblexp=True,
@@ -272,7 +271,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
     else:
-        s = sample_pot(
+        s = mw_pot.sample(
             nsamples=100000,
             params=p_exp_cfree_voro[0],
             fitc=True,
@@ -286,7 +285,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # -----------------------
 
     plt.figure()
-    plot_samples(
+    mw_pot.plot_samples(
         s, True, True, savefig=fpath + "varyc-dblexp-fitvoro-samples-corner.pdf",
     )
 
@@ -333,7 +332,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # Also adding in a gas disk (and still also fitting $R_0$ and $V_c(R_0)$)
 
     plt.figure(figsize=(16, 5))
-    p_exp_cfree_voro_wgas = fit_pot(
+    p_exp_cfree_voro_wgas = mw_pot.fit(
         fitc=True,
         c=None,
         dblexp=True,
@@ -349,7 +348,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
     else:
-        s = sample_pot_multi(
+        s = mw_pot.sample_multi(
             nsamples=100000,
             params=p_exp_cfree_voro_wgas[0],
             fitc=True,
@@ -364,7 +363,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # -----------------------
 
     plt.figure()
-    plot_samples(
+    mw_pot.plot_samples(
         s, True, True, savefig=fpath + "varyc-dblexp-fitvoro-addgas-samples-corner.pdf",
     )
 

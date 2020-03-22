@@ -63,18 +63,15 @@ from galpy.util import (
 
 # PROJECT-SPECIFIC
 
-from ...mw_pot import (
-    fit as fit_pot,
-    sample as sample_pot,
-    plot_samples,
-)
+from ... import mw_pot
 from . import script_util as su
-
-from ...mw_pot import MWPotential2014Likelihood, REFR0, REFV0
 
 
 ###############################################################################
 # PARAMETERS
+
+REFR0 = mw_pot.REFR0
+REFV0 = mw_pot.REFV0
 
 np.random.seed(1)  # set random number seed. TODO use numpy1.8 generator
 
@@ -161,7 +158,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # $R_0$ and $V_c(R_0)$
 
     plt.figure(figsize=(16, 5))
-    p_b15_pal5gd1_voro = fit_pot(
+    p_b15_pal5gd1_voro = mw_pot.fit(
         fitc=True,
         c=None,
         addpal5=True,
@@ -178,7 +175,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
         with open(samples_savefilename, "rb") as savefile:
             s = pickle.load(savefile)
     else:
-        s = sample_pot(
+        s = mw_pot.sample(
             nsamples=100000,
             params=p_b15_pal5gd1_voro[0],
             fitc=True,
@@ -194,7 +191,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     # -----------------------
 
     plt.figure()
-    plot_samples(
+    mw_pot.plot_samples(
         s,
         True,
         True,
@@ -214,7 +211,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
         cs = np.arange(0.5, 4.1, 0.1)
         bf_params = []
         for c in tqdm(cs):
-            dum = fit_pot(fitc=False, c=c, plots=fpath + "mwpot14varyc-bf-fit.pdf",)
+            dum = mw_pot.fit(fitc=False, c=c, plots=fpath + "mwpot14varyc-bf-fit.pdf",)
             bf_params.append(dum[0])
         save_pickles(bf_savefilename, cs, bf_params)
 
@@ -290,7 +287,7 @@ def main(args: Optional[list] = None, opts: Optional[argparse.Namespace] = None)
     skip = 1
     hmass = []
     for sa in tqdm(s.T[::skip]):
-        pot = MWPotential2014Likelihood.setup_potential(
+        pot = mw_pot.setup_potential(
             sa, sa[-1], True, False, REFR0 * sa[8], REFV0 * sa[7], fitvoro=True,
         )
         hmass.append(

@@ -70,10 +70,6 @@ from pal5_constrain_mwhalo_shape import mcmc_util
 from pal5_constrain_mwhalo_shape.streams.pal5 import pal5_util
 
 from pal5_constrain_mwhalo_shape import mw_pot
-from pal5_constrain_mwhalo_shape.mw_pot import (
-    # REFR0, REFV0
-    MWPotential2014Likelihood
-)
 
 from pal5_constrain_mwhalo_shape.utils.Kuepper2015 import (
     sample_kuepper_flattening_post,
@@ -92,6 +88,9 @@ pal5varyc, cs = _get_pal5varyc()
 ###############################################################################
 # PARAMETERS
 
+REFR0 = mw_pot.REFR0
+REFV0 = mw_pot.REFV0
+
 # First read the surface densities
 surffile = "../data/mwpot14data/bovyrix13kzdata.csv"
 if not surffile is None and os.path.exists(surffile):
@@ -102,14 +101,8 @@ if not surffile is None and os.path.exists(surffile):
 
 # Then the terminal velocities
 cl_glon, cl_vterm, cl_corr = mw_pot.data.readClemens(dsinl=0.125)
-mc_glon, mc_vterm, mc_corr = mw_pot.data.readMcClureGriffiths07(
-    dsinl=0.125
-)
+mc_glon, mc_vterm, mc_corr = mw_pot.data.readMcClureGriffiths07(dsinl=0.125)
 termdata = (cl_glon, cl_vterm, cl_corr, mc_glon, mc_vterm, mc_corr)
-
-
-REFR0 = mw_pot.REFR0
-REFV0 = mw_pot.REFV0
 
 
 ###############################################################################
@@ -147,7 +140,7 @@ def read_mcmc(
     singlepot: Optional[int] = None,
     skip: int = 1,
 ):
-    """Read MCMC
+    """Read MCMC.
 
     Parameters
     ----------
@@ -208,9 +201,7 @@ def read_mcmc(
             continue
 
         # Needs to be before addforces, because evi uses -1 as the lnlike index
-        tweights = (
-            np.ones((len(tdata), 1)) / float(len(tdata)) * evi_func(tdata)
-        )
+        tweights = np.ones((len(tdata), 1)) / float(len(tdata)) * evi_func(tdata)
         evis = np.vstack((evis, np.ones((len(tdata), 1)) * evi_func(tdata)))
         if addforces:
             # Read the potential from the file
@@ -220,12 +211,8 @@ def read_mcmc(
             forces = np.empty((len(tdata), 2))
             for ee, c in enumerate(tdata[:, 0]):
                 tvo = tdata[ee, 1] * REFV0
-                pot = MWPotential2014Likelihood.setup_potential(
-                    potparams, c, False, False, REFR0, tvo
-                )
-                forces[ee, :] = MWPotential2014Likelihood.force_pal5(
-                    pot, 23.46, REFR0, tvo
-                )[:2]
+                pot = mw_pot.setup_potential(potparams, c, False, False, REFR0, tvo)
+                forces[ee, :] = pal5_util.force_pal5(pot, 23.46, REFR0, tvo)[:2]
             tdata = np.hstack((tdata, forces))
         if addmwpot14weights:
             # Not terribly useful right now
@@ -241,7 +228,7 @@ def read_mcmc(
             rndindx = np.argmin(np.fabs(s[0] - potparams[0]))
             pot_params = s[:, rndindx]
             print(pot_params[7])
-            base_like = MWPotential2014Likelihood.like_func(
+            base_like = mw_pot.like_func(
                 pot_params,
                 pot_params[7],
                 surfrs,
@@ -259,7 +246,7 @@ def read_mcmc(
             for ee, c in enumerate(tdata[:, 0]):
                 tvo = tdata[ee, 1] * REFV0
                 tweights[ee] *= np.exp(
-                    -MWPotential2014Likelihood.like_func(
+                    -mw_pot.like_func(
                         pot_params,
                         c,
                         surfrs,
@@ -278,9 +265,7 @@ def read_mcmc(
                 )
         # Only keep
         alldata = np.vstack((alldata, tdata))
-        indx = np.vstack(
-            (indx, np.zeros((len(tdata), 1), dtype="int") + pindx)
-        )
+        indx = np.vstack((indx, np.zeros((len(tdata), 1), dtype="int") + pindx))
         weights = np.vstack((weights, tweights))
 
     return alldata, indx[:, 0], weights[:, 0], evis[:, 0]
@@ -420,8 +405,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
     print("Need to continue chains:", end=" ")
     for i in range(32):
         ngood = mcmc_util.determine_nburn(
-            filename=opath + f"mwpot14-fitsigma-{i:02}.dat",
-            return_nsamples=True,
+            filename=opath + f"mwpot14-fitsigma-{i:02}.dat", return_nsamples=True,
         )
         if ngood < 4000:
             print(f"{i:02} (N={ngood})", end=", ")
@@ -457,9 +441,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
 
     # --------------
     # Which potential is preferred?
-    data_noforce, potindx, weights, evidences = read_mcmc(
-        evi_func=evi_harmonic
-    )
+    data_noforce, potindx, weights, evidences = read_mcmc(evi_func=evi_harmonic)
 
     fig = plt.figure(figsize=(6, 4))
     bovy_plot.bovy_plot(
@@ -498,9 +480,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
     cmap = cm.plasma
     maxl = np.zeros((npot, 2))
     for en, ii in enumerate(range(npot)):
-        data_ip, _, weights_ip, evi_ip = read_mcmc(
-            singlepot=ii, evi_func=evi_harmonic
-        )
+        data_ip, _, weights_ip, evi_ip = read_mcmc(singlepot=ii, evi_func=evi_harmonic)
         try:
             maxl[en, 0] = np.amax(data_ip[:, -1])
             maxl[en, 1] = np.log(evi_ip[0])
@@ -547,14 +527,10 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
             for jj in range(nvoc):
                 c = np.random.uniform() * 1.5 + 0.5
                 tvo = np.random.uniform() * 50.0 + 200.0
-                pot = MWPotential2014Likelihood.setup_potential(
-                    potparams, c, False, False, REFR0, tvo
-                )
-                fs[:, jj, ii] = np.array(
-                    MWPotential2014Likelihood.force_pal5(
-                        pot, 23.46, REFR0, tvo
-                    )
-                )[:2]
+                pot = mw_pot.setup_potential(potparams, c, False, False, REFR0, tvo)
+                fs[:, jj, ii] = np.array(pal5_util.force_pal5(pot, 23.46, REFR0, tvo))[
+                    :2
+                ]
         save_pickles(frfzprior_savefilename, fs)
     else:
         with open(frfzprior_savefilename, "rb") as savefile:
@@ -617,12 +593,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
         fs[0].flatten(), fs[1].flatten(), bins=bins, range=trange, normed=True
     )
     H_post, xedges, yedges = np.histogram2d(
-        data_wf[:, 7],
-        data_wf[:, 8],
-        weights=tw,
-        bins=bins,
-        range=trange,
-        normed=True,
+        data_wf[:, 7], data_wf[:, 8], weights=tw, bins=bins, range=trange, normed=True,
     )
     H_like = H_post / H_prior
     H_like[H_prior == 0.0] = 0.0
@@ -638,9 +609,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
         ylabel=r"$F_Z(\mathrm{Pal\ 5})\,(\mathrm{km\,s}^{-1}\,\mathrm{Myr}^{-1})$",
         gcf=True,
     )
-    bovy_plot.bovy_text(
-        r"$\mathbf{Prior}$", top_left=True, size=19.0, color="w"
-    )
+    bovy_plot.bovy_text(r"$\mathbf{Prior}$", top_left=True, size=19.0, color="w")
     axes_white()
     plt.subplot(1, 3, 2)
     bovy_plot.bovy_dens2d(
@@ -653,9 +622,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
         xlabel=r"$F_R(\mathrm{Pal\ 5})\,(\mathrm{km\,s}^{-1}\,\mathrm{Myr}^{-1})$",
         gcf=True,
     )
-    bovy_plot.bovy_text(
-        r"$\mathbf{Posterior}$", top_left=True, size=19.0, color="w"
-    )
+    bovy_plot.bovy_text(r"$\mathbf{Posterior}$", top_left=True, size=19.0, color="w")
     axes_white()
     plt.subplot(1, 3, 3)
     bovy_plot.bovy_dens2d(
@@ -670,9 +637,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
         xlabel=r"$F_R(\mathrm{Pal\ 5})\,(\mathrm{km\,s}^{-1}\,\mathrm{Myr}^{-1})$",
         gcf=True,
     )
-    bovy_plot.bovy_text(
-        r"$\mathbf{Likelihood}$", top_left=True, size=19.0, color="w"
-    )
+    bovy_plot.bovy_text(r"$\mathbf{Likelihood}$", top_left=True, size=19.0, color="w")
     axes_white()
 
     def qline(FR, q=0.95):
@@ -740,12 +705,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
         np.sqrt(
             (
                 np.sum(
-                    (
-                        (
-                            -2.0 * (frs + 0.8) + 0.94 ** 2.0 * (fzs + 1.82)
-                        ).flatten()
-                        - mq
-                    )
+                    ((-2.0 * (frs + 0.8) + 0.94 ** 2.0 * (fzs + 1.82)).flatten() - mq)
                     ** 2.0
                     * H_like.flatten()
                 )
@@ -803,12 +763,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
         np.sqrt(
             (
                 np.sum(
-                    (
-                        (
-                            0.94 ** 2.0 * (frs + 0.8) + 2.0 * (fzs + 1.82)
-                        ).flatten()
-                        - mq
-                    )
+                    ((0.94 ** 2.0 * (frs + 0.8) + 2.0 * (fzs + 1.82)).flatten() - mq)
                     ** 2.0
                     * H_like.flatten()
                 )
@@ -866,9 +821,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
         )
         plt.axvline(-0.80, color=sns.color_palette()[0])
         plt.axhline(-1.83, color=sns.color_palette()[0])
-        bovy_plot.bovy_text(
-            r"$\mathrm{Potential}\ %i$" % ii, size=17.0, top_left=True
-        )
+        bovy_plot.bovy_text(r"$\mathrm{Potential}\ %i$" % ii, size=17.0, top_left=True)
     plt.savefig("figures/PDFs/constain_F_prll.pdf")
     plt.close()
 
@@ -888,11 +841,15 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
     for en, ii in enumerate([0, 15, 24, 25]):
         plt.subplot(nrow, 4, en + 1)
         if en % 4 == 0:
-            tylabel = r"$F_Z(\mathrm{Pal\ 5})\,(\mathrm{km\,s}^{-1}\,\mathrm{Myr}^{-1})$"
+            tylabel = (
+                r"$F_Z(\mathrm{Pal\ 5})\,(\mathrm{km\,s}^{-1}\,\mathrm{Myr}^{-1})$"
+            )
         else:
             tylabel = None
         if en // 4 == nrow - 1:
-            txlabel = r"$F_R(\mathrm{Pal\ 5})\,(\mathrm{km\,s}^{-1}\,\mathrm{Myr}^{-1})$"
+            txlabel = (
+                r"$F_R(\mathrm{Pal\ 5})\,(\mathrm{km\,s}^{-1}\,\mathrm{Myr}^{-1})$"
+            )
         else:
             txlabel = None
         bovy_plot.scatterplot(
@@ -1038,12 +995,8 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
             tdata = tdata[np.random.permutation(len(tdata))[0]]
             all_params[ii] = tdata
             tvo = tdata[1] * REFV0
-            pot = MWPotential2014Likelihood.setup_potential(
-                potparams, tdata[0], False, False, REFR0, tvo
-            )
-            forces[ii, :] = MWPotential2014Likelihood.force_pal5(
-                pot, 23.46, REFR0, tvo
-            )[:2]
+            pot = mw_pot.setup_potential(potparams, tdata[0], False, False, REFR0, tvo)
+            forces[ii, :] = pal5_util.force_pal5(pot, 23.46, REFR0, tvo)[:2]
             # Now compute the stream model for this setup
             dist = tdata[2] * 22.0
             pmra = -2.296 + tdata[3] + tdata[4]
@@ -1089,12 +1042,8 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
                 # Store the track
                 pal5_track_samples[ii, jj, 0] = trackRADec[:, 0]
                 pal5_track_samples[ii, jj, 1] = trackRADec[:, 1]
-                pal5_track_samples[ii, jj, 2] = sdf._interpolatedObsTrackLB[
-                    :, 2
-                ]
-                pal5_track_samples[ii, jj, 3] = sdf._interpolatedObsTrackLB[
-                    :, 3
-                ]
+                pal5_track_samples[ii, jj, 2] = sdf._interpolatedObsTrackLB[:, 2]
+                pal5_track_samples[ii, jj, 3] = sdf._interpolatedObsTrackLB[:, 3]
                 pal5_track_samples[ii, jj, 4] = trackpmRADec[:, 0]
                 pal5_track_samples[ii, jj, 5] = trackpmRADec[:, 1]
         save_pickles(
@@ -1149,15 +1098,9 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
                 pal5_track_samples[ii, jj, 0, : 500 + 500 * (1 - jj)],
                 np.sqrt(1.0 + (2.257 / 2.296) ** 2.0)
                 * (
-                    (
-                        pal5_track_samples[ii, jj, 4, : 500 + 500 * (1 - jj)]
-                        + 2.296
-                    )
+                    (pal5_track_samples[ii, jj, 4, : 500 + 500 * (1 - jj)] + 2.296)
                     * pmdecperp
-                    - (
-                        pal5_track_samples[ii, jj, 5, : 500 + 500 * (1 - jj)]
-                        + 2.257
-                    )
+                    - (pal5_track_samples[ii, jj, 5, : 500 + 500 * (1 - jj)] + 2.257)
                 )
                 / (pmdecpar - pmdecperp),
                 "-",
@@ -1182,9 +1125,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
     # Colorbar
     gs2 = gridspec.GridSpec(2, 1, wspace=0.0, left=0.95, right=0.975)
     plt.subplot(gs2[:, -1])
-    sm = plt.cm.ScalarMappable(
-        cmap=cmap, norm=plt.Normalize(vmin=-2.5, vmax=-1.5)
-    )
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=-2.5, vmax=-1.5))
     sm._A = []
     CB1 = plt.colorbar(sm, orientation="vertical", cax=plt.gca())
     CB1.set_label(
@@ -1242,12 +1183,7 @@ def main(args: Optional[list] = None, opts: Optional[Namespace] = None):
 
     plt.figure(figsize=(6, 4))
     dum = bovy_plot.bovy_hist(
-        apal5s,
-        range=[0.0, 10.0],
-        lw=2.0,
-        bins=51,
-        histtype="step",
-        normed=True,
+        apal5s, range=[0.0, 10.0], lw=2.0, bins=51, histtype="step", normed=True,
     )
     plt.savefig("figures/kuepper_samples_prior.pdf")
     plt.close()
